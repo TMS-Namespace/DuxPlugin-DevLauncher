@@ -1,0 +1,13 @@
+module qs.DCommon.Widgets
+StyledText 1.0 StyledText.qml
+DButton 1.0 DButton.qml
+DIcon 1.0 DIcon.qml
+DActionButton 1.0 DActionButton.qml
+DTextField 1.0 DTextField.qml
+DCollapsibleSection 1.0 DCollapsibleSection.qml
+DDropdown 1.0 DDropdown.qml
+DDialog 1.0 DDialog.qml
+DNumberStepper 1.0 DNumberStepper.qml
+DSlider 1.0 DSlider.qml
+AppIconRenderer 1.0 AppIconRenderer.qml
+DToggle 1.0 DToggle.qml

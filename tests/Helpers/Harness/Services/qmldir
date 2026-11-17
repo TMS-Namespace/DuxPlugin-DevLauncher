@@ -1,0 +1,4 @@
+module qs.Services
+singleton ToastService 1.0 ToastService.qml
+singleton PluginService 1.0 PluginService.qml
+singleton AppSearchService 1.0 AppSearchService.qml

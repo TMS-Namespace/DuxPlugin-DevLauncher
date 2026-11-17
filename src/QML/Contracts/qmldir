@@ -1,0 +1,5 @@
+module DevLauncher.Contracts
+ProviderType 1.0 ProviderType.qml
+ProviderProperties 1.0 ProviderProperties.qml
+ProviderLoadError 1.0 ProviderLoadError.qml
+ProviderBase 1.0 ProviderBase.qml

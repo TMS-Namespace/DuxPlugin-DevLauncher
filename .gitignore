@@ -1,0 +1,20 @@
+# Build / editor artifacts
+.vscode/*
+!.vscode/settings.json
+*.swp
+*~
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+.pytest_cache/
+__pycache__/
+*.pyc
+.codex
+.agents
+
+# Generated editor metadata; rebuilt from the installed Quickshell module by audit/Lint.js.
+audit/lint-imports/Quickshell/
+.aws
+.claude

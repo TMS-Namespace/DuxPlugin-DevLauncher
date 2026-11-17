@@ -1,0 +1,9 @@
+module DevLauncher.Views
+FolderSettings 1.0 FolderSettings.qml
+ProviderEditor 1.0 ProviderEditor.qml
+DetailsModal 1.0 DetailsModal.qml
+LabeledFieldRow 1.0 LabeledFieldRow.qml
+IdeSettings 1.0 IdeSettings.qml
+AgeFilterRow 1.0 AgeFilterRow.qml
+AdditionalArguments 1.0 AdditionalArguments.qml
+SettingsGroupIcon 1.0 SettingsGroupIcon.qml

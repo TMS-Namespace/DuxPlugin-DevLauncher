@@ -1,0 +1,3 @@
+module qs.Modules.Plugins
+PluginSettings 1.0 PluginSettings.qml
+StringSetting 1.0 StringSetting.qml

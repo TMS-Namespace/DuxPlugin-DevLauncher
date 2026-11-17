@@ -1,0 +1,27 @@
+// IconRules.test.js - Check system icons and repository and IDE badges.
+const assert = require("node:assert/strict");
+const source = require("../../../Helpers/LoadSource.cjs");
+const iconRules = source("Helpers/IconRules.js");
+assert.deepEqual(Array.from(iconRules.iconCandidates("workspace", "missing-workspace-icon")), ["missing-workspace-icon", "text-x-generic", "folder"]);
+assert.match(iconRules.descriptor("repository", "folder", "/theme/folder.svg").icon, /^svg:data:image\/svg\+xml,/);
+assert.equal(iconRules.descriptor("file", "text-x-javascript", "").icon, "text-x-javascript");
+const sampleSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect fill="blue" width="48" height="48"/></svg>';
+const composite = iconRules.descriptor("file", "text-x-javascript", "/theme/text-x-javascript.svg", "/theme/vscode.svg", sampleSvg, sampleSvg).icon;
+assert.match(decodeURIComponent(composite), /<g transform="translate\(36 36\) scale\(0\.5416666666666666 0\.5416666666666666\)/);
+assert.match(decodeURIComponent(composite), /<g transform="translate\(0 0\) scale\(1\.3333333333333333 1\.3333333333333333\)/);
+assert.equal(decodeURIComponent(composite).includes("<circle"), false);
+assert.match(decodeURIComponent(composite), /<rect x="34" y="34" width="30" height="30" rx="6"/);
+const repositoryComposite = iconRules.descriptor("repository", "folder", "/theme/folder.svg", "/theme/vscode.svg", sampleSvg, sampleSvg).icon;
+assert.match(repositoryComposite, /^svg:data:image\/svg\+xml,/);
+assert.match(decodeURIComponent(repositoryComposite), /<rect x="34" y="0" width="30" height="30" rx="6"/);
+assert.match(decodeURIComponent(repositoryComposite), /<path d="M42 44v11/);
+const badgeAppearance = source("Helpers/BadgeAppearanceRules.js");
+assert.equal(badgeAppearance.lightBase('<svg><rect fill="#ffffff"/></svg>'), true);
+assert.equal(badgeAppearance.lightBase('<svg><rect fill="#121212"/></svg>'), false);
+assert.match(badgeAppearance.surface('<svg><rect fill="#ffffff"/></svg>', false), /fill="#111820"/);
+assert.match(badgeAppearance.surface('<svg><rect fill="#121212"/></svg>', false), /fill="#ffffff"/);
+assert.equal(badgeAppearance.surface('<svg><rect fill="#121212"/></svg>', false).includes("stroke="), false);
+const executableIcons = source("Helpers/ExecutableIconRules.js");
+assert.equal(executableIcons.iconName("/usr/bin/code", [{ execString: "/usr/share/code/code %F", icon: "vscode" }]), "vscode");
+assert.equal(executableIcons.iconName("/opt/other/code", [{ execString: "/usr/share/code/code %F", icon: "vscode" }, { execString: "/opt/other/code %F", icon: "otheride" }]), "otheride");
+assert.equal(iconRules.descriptor("file", "", "").iconType, "material");

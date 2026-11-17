@@ -1,0 +1,10 @@
+module DevLauncher.Services
+ScanOrchestrator 1.0 ScanOrchestrator.qml
+ProviderHandler 1.0 ProviderHandler.qml
+singleton ProvidersManager 1.0 ProvidersManager.qml
+singleton DataStorage 1.0 DataStorage.qml
+singleton Logger 1.0 Logger.qml
+singleton ErrorHandler 1.0 ErrorHandler.qml
+singleton SystemOpener 1.0 SystemOpener.qml
+singleton FileMetadataService 1.0 FileMetadataService.qml
+singleton ResultItemIcon 1.0 ResultItemIcon.qml

@@ -1,0 +1,4 @@
+module qs.DCommon.Common
+singleton Host 1.0 Host.qml
+singleton Paths 1.0 Paths.qml
+singleton Style 1.0 Style.qml

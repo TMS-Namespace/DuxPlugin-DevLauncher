@@ -1,0 +1,3 @@
+module DevLauncher.BackgroundWorkers
+RepositoryScanner 1.0 RepositoryScanner.qml
+ProviderValidator 1.0 ProviderValidator.qml

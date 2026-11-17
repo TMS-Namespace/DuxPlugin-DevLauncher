@@ -1,0 +1,3 @@
+module DevLauncher.Providers.VSCode
+HistoryDatabase 1.0 HistoryDatabase.qml
+VSCodeRecents 1.0 VSCodeRecents.qml
