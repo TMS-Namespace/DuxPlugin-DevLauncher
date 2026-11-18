@@ -7,10 +7,10 @@
     "type": "composite",
     "capabilities": ["daemon", "launcher"],
     "components": {
-        "daemon": "./src/QML/Services/ScanOrchestrator.qml",
-        "launcher": "./src/QML/Launcher.qml"
+        "daemon": "./src/Plugin/QML/Services/ScanOrchestrator.qml",
+        "launcher": "./src/Plugin/QML/Launcher.qml"
     },
-    "settings": "./src/QML/Settings.qml",
+    "settings": "./src/Plugin/QML/Settings.qml",
     "trigger": "`",
     "icon": "account_tree",
     "category": "productivity",

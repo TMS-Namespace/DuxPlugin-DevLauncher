@@ -24,9 +24,9 @@ const root = path.resolve(__dirname, "..");
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "plugin.json"), "utf8"));
 if (manifest.type !== "composite" || !manifest.components || !manifest.components.daemon || !manifest.components.launcher)
     throw new Error("Dux requires a composite launcher and daemon plugin");
-if (manifest.components.daemon !== "./src/QML/Services/ScanOrchestrator.qml")
+if (manifest.components.daemon !== "./src/Plugin/QML/Services/ScanOrchestrator.qml")
     throw new Error("The daemon entry point must load the scan orchestrator service");
-for (const file of files(path.join(root, "src/JS"), ".js")) {
+for (const file of files(path.join(root, "src"), ".js")) {
     const source = fs.readFileSync(file, "utf8");
     if (source.split("\n").length > 150) throw new Error(file + " exceeds the JavaScript size limit");
     new vm.Script(source.replace(/^\.pragma.*$/gm, "").replace(/^\.import.*$/gm, ""), { filename: file });
@@ -42,7 +42,9 @@ if (!lintCommand) throw new Error("Qt 6 qmllint was not found; set QMLLINT to it
 const imports = fs.mkdtempSync(path.join(os.tmpdir(), "dev-launcher-lint-"));
 try {
     prepare(imports, root);
-    run(lintCommand, ["--max-warnings", "0", "--unused-imports", "warning", "-I", imports, "-i", path.join(imports, "Quickshell/Io/qmldir")].concat(files(path.join(root, "src/QML"), ".qml")));
+    // Isolate each QML file: qmllint can otherwise reuse incomplete composite metadata across provider modules.
+    for (const file of files(path.join(root, "src"), ".qml"))
+        run(lintCommand, ["--max-warnings", "0", "--unused-imports", "warning", "-I", imports, "-i", path.join(imports, "Quickshell/Io/qmldir"), file]);
 } finally {
     fs.rmSync(imports, { recursive: true, force: true });
 }

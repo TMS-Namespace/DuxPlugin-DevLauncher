@@ -6,20 +6,21 @@ const path = require("node:path");
 const { load } = require("./LoadQmlJs.js");
 
 // Load every provider folder and check its API, properties, entry point, and descriptor against the common contract, throwing on the first mismatch.
-function check(root = path.resolve(__dirname, "../src/JS")) {
+function check(root = path.resolve(__dirname, "../src")) {
+    const shared = path.join(root, "Plugin/JS");
     const cache = new Map();
-    const apiBase = load(path.join(root, "Contracts/ProviderApi.js"), cache);
-    const propertiesBase = load(path.join(root, "Contracts/ProviderProperties.js"), cache);
+    const apiBase = load(path.join(shared, "Contracts/ProviderApi.js"), cache);
+    const propertiesBase = load(path.join(shared, "Contracts/ProviderProperties.js"), cache);
     assert.ok(apiBase.create() instanceof apiBase.ProviderApi);
     assert.ok(propertiesBase.create() instanceof propertiesBase.ProviderProperties);
-    const rules = load(path.join(root, "Helpers/ProviderRules.js"), cache);
-    const baseModule = load(path.join(root, "Contracts/ProviderBase.js"), cache);
-    const descriptors = load(path.join(root, "Contracts/ProviderDescriptor.js"), cache);
+    const rules = load(path.join(shared, "Helpers/ProviderRules.js"), cache);
+    const baseModule = load(path.join(shared, "Contracts/ProviderBase.js"), cache);
+    const descriptors = load(path.join(shared, "Contracts/ProviderDescriptor.js"), cache);
     const providerRoot = path.join(root, "Providers");
     const providers = fs.readdirSync(providerRoot, { withFileTypes: true }).filter(entry => entry.isDirectory());
     assert.ok(providers.length > 0, "At least one provider declaration is required");
     for (const provider of providers) {
-        const directory = path.join(providerRoot, provider.name);
+        const directory = path.join(providerRoot, provider.name, "JS");
         const api = load(path.join(directory, provider.name + "Api.js"), cache);
         const declaration = load(path.join(directory, provider.name + "Properties.js"), cache);
         const instance = api.create();

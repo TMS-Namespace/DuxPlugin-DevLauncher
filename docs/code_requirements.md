@@ -34,20 +34,20 @@ failed, not what any one plugin does.
 
 ## 2. Layers and folders
 
-- Mirror the structure in `src/JS/`, `src/QML/`, and `tests/`. Each folder has one role:
-  - `src/QML/Contracts`: data holders.
-  - `src/QML/Services`: stateful objects shared across the plugin.
-  - `src/QML/Tools`: per-widget calculations, grouping models, and presentation helpers; do not put shared queues, caches, or storage here.
-  - `src/QML/Views`: UI only.
-  - `src/QML/BackgroundWorkers`: bounded background process and parsing workers.
-  - `src/JS/Contracts`: value domains (enums with `isValid`/`label`) and the exception type.
-  - `src/JS/Helpers`: pure logic modules.
-  - `src/JS/Storage`: cache-format decoding, migration and serialization before data enters runtime state.
+- Mirror the structure in `src/Plugin/`, `src/Providers/<provider>/`, and `tests/`. Each contains its own `JS/` and `QML/` folders. Each folder has one role:
+  - `src/Plugin/QML/Contracts`: data holders.
+  - `src/Plugin/QML/Services`: stateful objects shared across the plugin.
+  - `src/Plugin/QML/Tools`: per-widget calculations, grouping models, and presentation helpers; do not put shared queues, caches, or storage here.
+  - `src/Plugin/QML/Views`: UI only.
+  - `src/Plugin/QML/BackgroundWorkers`: bounded background process and parsing workers.
+  - `src/Plugin/JS/Contracts`: value domains (enums with `isValid`/`label`) and the exception type.
+  - `src/Plugin/JS/Helpers`: pure logic modules.
+  - `src/Plugin/JS/Storage`: cache-format decoding, migration and serialization before data enters runtime state.
   - `<extension folder>/<Name>/`: everything specific to one external integration (see section 6). Its `Integration/`
     subfolder holds the entry points, the only files the rest of the code may import from it.
   - The shared contracts folder also holds the abstract base types that every integration implements, and the
     descriptor schema that checks an integration's declared data (see section 6).
-- Stateful cache, secret-storage, API-statistics, request, and resource-queue components belong in `src/QML/Services`, even when used by one view.
+- Stateful cache, secret-storage, API-statistics, request, and resource-queue components belong in `src/Plugin/QML/Services`, even when used by one view.
 - Dependencies point one way: Views → Tools/Services → Contracts. A lower layer never imports a higher one.
 - Keep DMS entry points focused on composing views and connecting host APIs. Per-instance controller helpers own
   form actions and widget lifecycles. Controllers receive data and emit signals; they never reference visual controls.
@@ -111,7 +111,7 @@ failed, not what any one plugin does.
   contracts, which checks the shape before use.
 - **Registry.** The host lists integrations in one registry. Adding an integration means one folder with its entry
   points, one identifier in the type enumeration, and one registry entry. No other host file changes.
-- Provider API classes extend `src/JS/Contracts/ProviderApi.js`; declarations extend `src/JS/Contracts/ProviderProperties.js`.
+- Provider API classes extend `src/Plugin/JS/Contracts/ProviderApi.js`; declarations extend `src/Plugin/JS/Contracts/ProviderProperties.js`.
   Both modules export `create()`. Override every required API method; optional hooks have inherited defaults.
 - Lint checks every provider's inheritance, required overrides, method signatures, property names and property types
   before starting QML. `node audit/CheckProviders.js` runs these contributor checks on their own.

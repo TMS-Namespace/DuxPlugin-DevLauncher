@@ -68,17 +68,17 @@ ShellRoot {
 
     Component.onCompleted: {
         HostCommon.SettingsData.pluginSettings = { devLauncher: root.settings };
-        root.controllerComponent = Qt.createComponent("file://" + root.pluginRoot + "/src/QML/Helpers/SettingsController.qml");
-        root.launcherComponent = Qt.createComponent("file://" + root.pluginRoot + "/src/QML/Launcher.qml");
-        root.iconComponent = Qt.createComponent("file://" + root.pluginRoot + "/src/QML/Services/ResultItemIcon.qml");
+        root.controllerComponent = Qt.createComponent("file://" + root.pluginRoot + "/src/Plugin/QML/Helpers/SettingsController.qml");
+        root.launcherComponent = Qt.createComponent("file://" + root.pluginRoot + "/src/Plugin/QML/Launcher.qml");
+        root.iconComponent = Qt.createComponent("file://" + root.pluginRoot + "/src/Plugin/QML/Services/ResultItemIcon.qml");
         const components = [root.controllerComponent, root.launcherComponent, root.iconComponent];
         for (const component of components) {
             if (!expect(component.status === Component.Ready, "component load " + component.errorString())) return;
         }
         // A fresh instance of the real icon service keeps the cache under test independent of the shared singleton.
         root.iconService = root.iconComponent.createObject(null);
-        const checksRoot = "file://" + root.pluginRoot + "/tests/Integration/QML/";
-        const paths = ["Helpers/SettingsController.test.qml", "LauncherLaunch.test.qml", "Services/ResultItemIcon.test.qml", "Providers/LocalGit/LocalGitRecents.test.qml", "Services/DataStorage.test.qml", "BackgroundWorkers/ProviderValidator.test.qml", "Services/ProvidersManager.test.qml", "Services/ErrorHandler.test.qml", "Providers/VSCode/HistoryDatabase.test.qml", "Views/FolderSettings.test.qml", "Providers/VSCode/VSCodeRecents.test.qml", "Services/ScanOrchestratorErrors.test.qml", "BackgroundWorkers/DateRefresher.test.qml", "LauncherRefresh.test.qml", "Services/FileMetadataService.test.qml", "Providers/Zed/ZedRecents.test.qml", "Providers/Rider/RiderRecents.test.qml"];
+        const checksRoot = "file://" + root.pluginRoot + "/tests/Integration/Plugin/QML/";
+        const paths = ["Helpers/SettingsController.test.qml", "LauncherLaunch.test.qml", "Services/ResultItemIcon.test.qml", "../../Providers/LocalGit/QML/LocalGitRecents.test.qml", "Services/DataStorage.test.qml", "BackgroundWorkers/ProviderValidator.test.qml", "Services/ProvidersManager.test.qml", "Services/ErrorHandler.test.qml", "../../Providers/VSCode/QML/HistoryDatabase.test.qml", "Views/FolderSettings.test.qml", "../../Providers/VSCode/QML/VSCodeRecents.test.qml", "Services/ScanOrchestratorErrors.test.qml", "BackgroundWorkers/DateRefresher.test.qml", "LauncherRefresh.test.qml", "Services/FileMetadataService.test.qml", "../../Providers/Zed/QML/ZedRecents.test.qml", "../../Providers/Rider/QML/RiderRecents.test.qml"];
         const checkComponents = paths.map(function(relativePath) { return Qt.createComponent(checksRoot + relativePath); });
         for (const component of checkComponents) if (!expect(component.status === Component.Ready, "check load " + component.errorString())) return;
         settingsChecks = checkComponents[0].createObject(null, { fixture: root });

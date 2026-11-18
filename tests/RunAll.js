@@ -129,7 +129,7 @@ function runLive() {
         fs.mkdirSync(runtime, { mode: 0o700 });
         const environment = { ...process.env, QT_QPA_PLATFORM: "offscreen", XDG_RUNTIME_DIR: runtime, XDG_DATA_HOME: path.join(fixture, "data"), DEV_LAUNCHER_PLUGIN_ROOT: path.resolve(__dirname, "..") };
         for (const name of ["DISPLAY", "WAYLAND_DISPLAY", "QT_QPA_PLATFORMTHEME", "QT_QPA_PLATFORMTHEME_QT6"]) delete environment[name];
-        const result = spawnSync("quickshell", ["-p", "tests/Integration/Live/Providers/VSCode/HistoryDatabase.test.qml"], { cwd: path.resolve(__dirname, ".."), env: environment, encoding: "utf8", timeout: 8000 });
+        const result = spawnSync("quickshell", ["-p", "tests/Integration/Live/Providers/VSCode/QML/HistoryDatabase.test.qml"], { cwd: path.resolve(__dirname, ".."), env: environment, encoding: "utf8", timeout: 8000 });
         const output = (result.stdout || "") + (result.stderr || "");
         for (const line of output.split("\n")) if (line.includes("T:")) console.log(line);
         if (result.status !== 0 || !output.includes("T:PASS live VS Code history") || output.includes("T:FAIL"))
@@ -140,9 +140,9 @@ function runLive() {
             const zedCopy = path.join(fixture, "zed-history.sqlite");
             for (const suffix of ["", "-wal", "-shm"]) if (fs.existsSync(zedSource + suffix)) fs.copyFileSync(zedSource + suffix, zedCopy + suffix);
             environment.DEV_LAUNCHER_LIVE_ZED_HISTORY = zedCopy;
-            runShell("tests/Integration/Live/Providers/Zed/ZedRecents.test.qml", environment, 8000, "T:PASS live Zed history", "Live Zed history");
+            runShell("tests/Integration/Live/Providers/Zed/QML/ZedRecents.test.qml", environment, 8000, "T:PASS live Zed history", "Live Zed history");
         }
-        run("node", ["tests/Integration/Live/Providers/Rider/RiderHistory.test.js"]);
+        run("node", ["tests/Integration/Live/Providers/Rider/JS/RiderHistory.test.js"]);
     } finally {
         fs.rmSync(fixture, { recursive: true, force: true });
     }

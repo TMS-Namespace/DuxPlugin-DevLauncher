@@ -47,15 +47,15 @@ ShellRoot {
     Component.onCompleted: {
         HostCommon.SettingsData.pluginSettings = { devLauncher: root.settings };
         DuxCommon.Host.files = fileMetadata;
-        const launcherComponent = Qt.createComponent("file://" + Quickshell.env("DEV_LAUNCHER_PLUGIN_ROOT") + "/src/QML/Launcher.qml");
-        const orchestratorComponent = Qt.createComponent("file://" + Quickshell.env("DEV_LAUNCHER_PLUGIN_ROOT") + "/src/QML/Services/ScanOrchestrator.qml");
-        const settingsComponent = Qt.createComponent("file://" + Quickshell.env("DEV_LAUNCHER_PLUGIN_ROOT") + "/src/QML/Settings.qml");
+        const launcherComponent = Qt.createComponent("file://" + Quickshell.env("DEV_LAUNCHER_PLUGIN_ROOT") + "/src/Plugin/QML/Launcher.qml");
+        const orchestratorComponent = Qt.createComponent("file://" + Quickshell.env("DEV_LAUNCHER_PLUGIN_ROOT") + "/src/Plugin/QML/Services/ScanOrchestrator.qml");
+        const settingsComponent = Qt.createComponent("file://" + Quickshell.env("DEV_LAUNCHER_PLUGIN_ROOT") + "/src/Plugin/QML/Settings.qml");
         if (launcherComponent.status !== Component.Ready || orchestratorComponent.status !== Component.Ready || settingsComponent.status !== Component.Ready) {
             console.warn("T:FAIL component load " + launcherComponent.errorString() + orchestratorComponent.errorString() + settingsComponent.errorString());
             Qt.quit();
             return ;
         }
-        const checksRoot = "file://" + Quickshell.env("DEV_LAUNCHER_PLUGIN_ROOT") + "/tests/Integration/QML/";
+        const checksRoot = "file://" + Quickshell.env("DEV_LAUNCHER_PLUGIN_ROOT") + "/tests/Integration/Plugin/QML/";
         const checkPaths = ["SettingsPage.test.qml", "Launcher.test.qml", "Views/IdeSettings.test.qml", "Services/ScanOrchestrator.test.qml"];
         const checkComponents = checkPaths.map(function(relativePath) { return Qt.createComponent(checksRoot + relativePath); });
         if (checkComponents.some(function(component) { return component.status !== Component.Ready; })) {
