@@ -18,4 +18,12 @@ QtObject {
         ToastService.showError("Dev Launcher", message);
     }
 
+    // Report a failure caused by the user's own action, such as a launch. It is shown every time, never throttled,
+    // because the user asked for the action and needs to know that it did not happen.
+    function reportAlways(scope, message, details) {
+        Logger.error(scope, details ? message + " Details: " + String(details) : message);
+        lastNotificationAt = Date.now();
+        ToastService.showError("Dev Launcher", message);
+    }
+
 }

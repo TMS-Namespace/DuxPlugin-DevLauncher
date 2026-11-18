@@ -32,7 +32,8 @@ Item {
     property string validationField: ""
     property string folderError: ""
     // Latest scan errors per folder, published by the scan orchestrator. Shown in the folder list only, never as repeated toasts.
-    property var folderErrors: []
+    // Latest error per IDE, published by the scan orchestrator and shown in that IDE's settings row only.
+    property var providerErrors: []
     property string triggerError: ""
     property var candidateHandler: null
     property bool verified: false
@@ -105,7 +106,7 @@ Item {
     function validateDraft() {
         if (!editorOpen || validating) return;
         validationRequested = false;
-        const normalized = Object.assign({}, draft, { name: String(draft.name || "").trim() });
+        const normalized = DraftRules.normalize(draft);
         if (providers.some(function(provider, index) { return index !== editIndex && provider.name === normalized.name; })) {
             validationField = "name";
             validationError = "Each IDE needs a unique name.";
@@ -137,7 +138,7 @@ Item {
     function load() {
         if (!pluginService) return;
         DataStorage.configure(pluginService);
-        folders = ConfigurationRules.folders(DataStorage.load("folders", Config.folders));
+        folders = ConfigurationRules.folderEntries(DataStorage.load("folders", Config.folders));
         providers = ConfigurationRules.providers(DataStorage.load("providers", ProvidersManager.defaultConfigurations()));
         defaultProvider = ConfigurationRules.defaultProvider(DataStorage.load("defaultProvider", ProvidersManager.defaultProviderId()), providers);
         trigger = DataStorage.load("trigger", Config.trigger);
@@ -147,7 +148,7 @@ Item {
         ageFilterValue = ageSetting.value;
         ageFilterUnit = ageSetting.unit;
         repositoryDepth = ConfigurationRules.repositoryDepth(DataStorage.load("repositoryDepth", Config.defaultRepositoryDepth));
-        refreshFolderErrors();
+        refreshScanErrors();
     }
 
     // Save one key through the shared storage door.
@@ -157,12 +158,15 @@ Item {
         return saved;
     }
 
-    // Add one selected folder after checking for duplicates and covered paths.
+    // Add one selected folder after checking for duplicates and covered paths. Each folder becomes its own entry with its
+    // own identifier, so its scan errors and its toast belong to that entry, not to its path.
     function addFolder(path) {
         const addition = ConfigurationRules.folderAddition(path, folders);
         folderError = addition.error;
         if (!addition.path) return false;
-        const next = folders.concat([addition.path]);
+        const taken = providers.map(function(provider) { return provider.id; }).concat(folders.map(function(entry) { return entry.id; }));
+        const entry = { id: ProviderIdentity.create(taken), type: ProvidersManager.folderTypeId(), folder: addition.path };
+        const next = folders.concat([entry]);
         if (!saveValue("folders", next)) return false;
         folders = next;
         folderError = "";
@@ -178,21 +182,22 @@ Item {
         return true;
     }
 
-    // Read the latest folder scan errors. Each folder row shows its own error, so a failing folder is visible here without a toast.
-    function refreshFolderErrors() {
+    // Read the latest scan errors of every source. Each folder and IDE row shows its own error, so a failing source is visible
+    // in settings without a toast on every scan.
+    function refreshScanErrors() {
         if (!pluginService) return;
-        const published = pluginService.getGlobalVar(Config.pluginId, "folderErrors", []);
-        folderErrors = Array.isArray(published) ? published : [];
+        const publishedProviders = pluginService.getGlobalVar(Config.pluginId, "providerErrors", []);
+        providerErrors = Array.isArray(publishedProviders) ? publishedProviders : [];
     }
 
-    // Return the latest scan error for one configured folder, or "" when its last scan succeeded.
-    function scanErrorFor(folder) { return ScanErrorRules.forConfiguredFolder(folder, folderErrors); }
+    // Return the latest scan error for one IDE, or "" when its last scan succeeded.
+    function providerErrorFor(providerId) { return ScanErrorRules.forProvider(providerId, providerErrors); }
 
     // Create an IDE draft with provider-owned defaults.
     function beginAdd() {
         if (providers.length >= Config.maxProviders) return;
         editIndex = -1;
-        const defaults = ProvidersManager.defaultsFor(ProvidersManager.sources[0].id);
+        const defaults = ProvidersManager.defaultsFor(ProvidersManager.defaultTypeId());
         let name = defaults.name;
         let suffix = 2;
         while (providers.some(function(provider) { return provider.name === name; })) name = defaults.name + " " + suffix++;
@@ -250,10 +255,12 @@ Item {
             }
             return false;
         }
+        // Check and save the same trimmed alias that validation checked.
+        const normalized = DraftRules.normalize(draft);
         let candidate = null;
         try {
-            candidate = ProvidersManager.candidate(draft);
-            const conflict = duplicateError(candidate, draft);
+            candidate = ProvidersManager.candidate(normalized);
+            const conflict = duplicateError(candidate, normalized);
             if (conflict) {
                 validationError = conflict;
                 verified = false;
@@ -268,7 +275,6 @@ Item {
         } finally {
             releaseHandler(candidate);
         }
-        const normalized = Object.assign({}, draft, { name: String(draft.name || "").trim() });
         const next = providers.slice();
         if (editIndex >= 0) next[editIndex] = normalized;
         else next.push(normalized);
@@ -388,7 +394,9 @@ Item {
         target: root.pluginService
         enabled: root.pluginService !== null
         function onGlobalVarChanged(changedPluginId, name) {
-            if (changedPluginId === Config.pluginId && name === "folderErrors") root.refreshFolderErrors();
+            // A controller that was already destroyed may still receive the signal; it has nothing to refresh then.
+            if (!root) return;
+            if (changedPluginId === Config.pluginId && name === "providerErrors") root.refreshScanErrors();
         }
     }
     Timer { id: validationTimer; interval: Config.providerValidationDebounceMilliseconds; repeat: false; onTriggered: root.validateDraft() }

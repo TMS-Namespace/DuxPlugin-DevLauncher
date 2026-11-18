@@ -117,7 +117,7 @@ Item {
             Qt.quit();
             return;
         }
-        const scannedFolder = root.settingsPage.controller.folders[0];
+        const scannedFolder = root.settingsPage.controller.folders[0].folder;
         if (root.settingsPage.controller.addFolder(scannedFolder + "/") || root.settingsPage.controller.folders.length !== 2 || !root.settingsPage.folderSettingsView.errorLabel.visible || !root.settingsPage.folderSettingsView.errorLabel.text.includes("already being scanned")) {
             console.warn("T:FAIL duplicate scan folder feedback");
             Qt.quit();

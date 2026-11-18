@@ -1,4 +1,4 @@
-// regression.qml - Check the settings, launcher, scanner, and icon-cache fixes against the real QML components.
+// regression.qml - Check the settings, launcher, folder-source, and icon-cache fixes against the real QML components.
 import QtQuick
 import Quickshell
 import qs.Common as HostCommon
@@ -19,23 +19,26 @@ ShellRoot {
     property var controller: null
     property var controllerComponent: null
     property var launcherComponent: null
-    property var scannerComponent: null
     property var iconComponent: null
     property var iconService: null
     property var launcher: null
-    property var scanner: null
     property var globals: ({})
     readonly property alias testPluginService: pluginService
     property var settingsChecks: null
     property var launcherChecks: null
     property var iconChecks: null
-    property var scannerChecks: null
+    property var localGitChecks: null
     property var storageChecks: null
     property var validatorChecks: null
     property var providersChecks: null
     property var errorChecks: null
     property var databaseChecks: null
     property var folderViewChecks: null
+    property var readerChecks: null
+    property var orchestratorChecks: null
+    property var refresherChecks: null
+    property var refreshChecks: null
+    property var metadataChecks: null
 
     // Report one failed expectation and stop the process so the runner sees the failure.
     function expect(condition, message) {
@@ -45,13 +48,15 @@ ShellRoot {
         return false;
     }
 
-    // Run focused regression checks before the asynchronous scanner case.
+    // Run focused regression checks before the asynchronous folder-source case.
     function runSyncChecks() {
         if (!storageChecks.checkDamagedSettings() || !storageChecks.checkCorruptBackupIsKept()) return false;
-        if (!providersChecks.checkDuplicateIdentifierRefused() || !providersChecks.checkValidationPathsMatchFacade() || !errorChecks.checkDetailsStayOutOfToast() || !databaseChecks.checkApostrophePathRead() || !folderViewChecks.checkFolderRowShowsScanError()) return false;
+        if (!providersChecks.checkDuplicateIdentifierRefused() || !providersChecks.checkValidationPathsMatchFacade() || !errorChecks.checkDetailsStayOutOfToast() || !databaseChecks.checkApostrophePathRead() || !folderViewChecks.checkFolderRowShowsScanError() || !errorChecks.checkLaunchErrorsAlwaysShown()) return false;
+        if (!readerChecks.checkStuckReadMovesOnThenEnds() || !readerChecks.checkClearedHistoryRemovesItems() || !orchestratorChecks.checkProviderErrorsStayOutOfToast() || !orchestratorChecks.checkFailedReadKeepsItems()) return false;
+        if (!metadataChecks.checkRedrawKeepsCachedMetadata()) return false;
         if (!validatorChecks.checkUnavailableProvider()) return false;
-        if (!settingsChecks.checkRemovalAboveEditor() || !settingsChecks.checkRemovalOfEditedRow() || !settingsChecks.checkInvalidSavedArguments() || !settingsChecks.checkErrorFieldRouting() || !settingsChecks.checkTextEditsWaitForCommit() || !settingsChecks.checkBrokenInstallationComparison() || !settingsChecks.checkCancelEdit() || !settingsChecks.checkFolderScanErrorShown() || !settingsChecks.checkDependentFieldsFromDescriptor()) return false;
-        if (!launcherChecks.checkMissingIdeLaunch() || !launcherChecks.checkIdeAliasActions() || !iconChecks.checkIconMissCache()) return false;
+        if (!settingsChecks.checkRemovalAboveEditor() || !settingsChecks.checkRemovalOfEditedRow() || !settingsChecks.checkInvalidSavedArguments() || !settingsChecks.checkErrorFieldRouting() || !settingsChecks.checkTextEditsWaitForCommit() || !settingsChecks.checkBrokenInstallationComparison() || !settingsChecks.checkCancelEdit() || !settingsChecks.checkFolderScanErrorShown() || !settingsChecks.checkDependentFieldsFromDescriptor() || !settingsChecks.checkProviderErrorShown()) return false;
+        if (!launcherChecks.checkMissingIdeLaunch() || !launcherChecks.checkRankingIsCached() || !launcherChecks.checkIdeAliasActions() || !iconChecks.checkIconMissCache()) return false;
         if (root.controller) root.controller.destroy();
         if (root.launcher) root.launcher.destroy();
         root.controller = null;
@@ -63,30 +68,34 @@ ShellRoot {
         HostCommon.SettingsData.pluginSettings = { devLauncher: root.settings };
         root.controllerComponent = Qt.createComponent("file://" + root.pluginRoot + "/src/QML/Helpers/SettingsController.qml");
         root.launcherComponent = Qt.createComponent("file://" + root.pluginRoot + "/src/QML/Launcher.qml");
-        root.scannerComponent = Qt.createComponent("file://" + root.pluginRoot + "/src/QML/BackgroundWorkers/RepositoryScanner.qml");
         root.iconComponent = Qt.createComponent("file://" + root.pluginRoot + "/src/QML/Services/ResultItemIcon.qml");
-        const components = [root.controllerComponent, root.launcherComponent, root.scannerComponent, root.iconComponent];
+        const components = [root.controllerComponent, root.launcherComponent, root.iconComponent];
         for (const component of components) {
             if (!expect(component.status === Component.Ready, "component load " + component.errorString())) return;
         }
         // A fresh instance of the real icon service keeps the cache under test independent of the shared singleton.
         root.iconService = root.iconComponent.createObject(null);
         const checksRoot = "file://" + root.pluginRoot + "/tests/Integration/QML/";
-        const paths = ["Helpers/SettingsController.test.qml", "LauncherLaunch.test.qml", "Services/ResultItemIcon.test.qml", "BackgroundWorkers/RepositoryScanner.test.qml", "Services/DataStorage.test.qml", "BackgroundWorkers/ProviderValidator.test.qml", "Services/ProvidersManager.test.qml", "Services/ErrorHandler.test.qml", "Providers/VSCode/HistoryDatabase.test.qml", "Views/FolderSettings.test.qml"];
+        const paths = ["Helpers/SettingsController.test.qml", "LauncherLaunch.test.qml", "Services/ResultItemIcon.test.qml", "Providers/LocalGit/LocalGitRecents.test.qml", "Services/DataStorage.test.qml", "BackgroundWorkers/ProviderValidator.test.qml", "Services/ProvidersManager.test.qml", "Services/ErrorHandler.test.qml", "Providers/VSCode/HistoryDatabase.test.qml", "Views/FolderSettings.test.qml", "Providers/VSCode/VSCodeRecents.test.qml", "Services/ScanOrchestratorErrors.test.qml", "BackgroundWorkers/DateRefresher.test.qml", "LauncherRefresh.test.qml", "Services/FileMetadataService.test.qml"];
         const checkComponents = paths.map(function(relativePath) { return Qt.createComponent(checksRoot + relativePath); });
         for (const component of checkComponents) if (!expect(component.status === Component.Ready, "check load " + component.errorString())) return;
         settingsChecks = checkComponents[0].createObject(null, { fixture: root });
         launcherChecks = checkComponents[1].createObject(null, { fixture: root });
         iconChecks = checkComponents[2].createObject(null, { fixture: root });
-        scannerChecks = checkComponents[3].createObject(null, { fixture: root });
+        localGitChecks = checkComponents[3].createObject(null, { fixture: root });
         storageChecks = checkComponents[4].createObject(null, { fixture: root });
         validatorChecks = checkComponents[5].createObject(null, { fixture: root });
         providersChecks = checkComponents[6].createObject(null, { fixture: root });
         errorChecks = checkComponents[7].createObject(null, { fixture: root });
         databaseChecks = checkComponents[8].createObject(null, { fixture: root });
         folderViewChecks = checkComponents[9].createObject(null, { fixture: root });
+        readerChecks = checkComponents[10].createObject(null, { fixture: root });
+        orchestratorChecks = checkComponents[11].createObject(null, { fixture: root });
+        refresherChecks = checkComponents[12].createObject(null, { fixture: root });
+        refreshChecks = checkComponents[13].createObject(null, { fixture: root });
+        metadataChecks = checkComponents[14].createObject(null, { fixture: root });
         if (!runSyncChecks()) return;
-        scannerChecks.startScannerCheck();
+        validatorChecks.startPathCheck(function() { refresherChecks.startRefresherCheck(function() { refreshChecks.startIdleCheck(function() { localGitChecks.startReaderCheck(); }); }); });
     }
 
     QtObject {

@@ -2,16 +2,49 @@
 import QtQuick
 import Quickshell
 import qs.Common as HostCommon
+import "../../../src/QML/Services" as Services
 
 Item {
     id: checks
     required property var fixture
     readonly property var root: fixture
+    readonly property string fixturePath: Quickshell.env("DEV_LAUNCHER_FIXTURE")
     readonly property var fileMetadata: fixture.fileMetadataService
     readonly property var compositePreview: fixture.compositePreviewItem
     readonly property var repositoryPreview: fixture.repositoryPreviewItem
 
     function startLaunchCheck() { launchCheck.start(); }
+
+    // Each injected record belongs to the test source named by its provider. Every call adds to that source's answer,
+    // so earlier injections stay, and then the cache is ordered as a scan would order it.
+    property var injectedBySource: ({})
+    function injectRecords(records) {
+        for (const record of records) {
+            const sourceId = record.provider;
+            const answer = (injectedBySource[sourceId] || []).concat([record]);
+            injectedBySource[sourceId] = answer;
+            Services.RecentItemsCache.reconcileSource(sourceId, record.providerName || "Test source", answer, true, Date.now());
+        }
+        Services.RecentItemsCache.commit();
+    }
+
+    // A missing path is removed once its modification time has been read, which takes a short stat process; poll until it is gone.
+    Timer {
+        id: missingCheck
+        property int attempts: 0
+        interval: 100
+        repeat: false
+        onTriggered: {
+            if (root.launcher.getItems("missing-project").length !== 0) {
+                if (attempts++ < 40) {
+                    restart();
+                    return;
+                }
+                console.warn("T:FAIL missing result still displayed");
+                Qt.quit();
+            }
+        }
+    }
 
     Timer {
         id: launchCheck
@@ -28,24 +61,24 @@ Item {
             }
             const repositorySvg = repositoryIcon ? decodeURIComponent(repositoryIcon.icon.slice(4)) : "";
             const fileSvg = fileIcon ? decodeURIComponent(fileIcon.icon.slice(4)) : "";
-            if (!repositoryIcon || !repositoryIcon.icon.startsWith("svg:data:image/svg+xml,") || !repositorySvg.includes('fill="#2277bb"') || !repositorySvg.includes('fill="#1188dd"') || !repositorySvg.includes('rx="6"') || !repositorySvg.includes('d="M42 44v11') || repositorySvg.includes("<circle") || repositoryIcon.iconType !== "image" || !fileIcon || !fileIcon.icon.startsWith("svg:data:image/svg+xml,") || !fileSvg.includes('fill="#ddaa11"') || !fileSvg.includes('fill="#1188dd"') || !fileSvg.includes('rx="6"') || fileSvg.includes("<circle") || fileIcon.iconType !== "image" || !fileIcon.comment.startsWith(fileIcon.path + " · ") || !/\d+[mhdwoy] ago$/.test(fileIcon.comment) || fileIcon.comment.includes("Modified") || fileIcon.comment.includes("Open with") || !providerIcon.startsWith("image:") || fileMetadata.requests !== 3 || root.liveRefreshNotifications < 1) {
-                console.warn("T:FAIL themed file icon or executable badge");
+            if (!repositoryIcon || !repositoryIcon.icon.startsWith("svg:data:image/svg+xml,") || !repositorySvg.includes('fill="#2277bb"') || !repositorySvg.includes('fill="#1188dd"') || !repositorySvg.includes('rx="6"') || !repositorySvg.includes('d="M42 44v11') || repositorySvg.includes("<circle") || repositoryIcon.iconType !== "image" || !fileIcon || !fileIcon.icon.startsWith("svg:data:image/svg+xml,") || !fileSvg.includes('fill="#ddaa11"') || !fileSvg.includes('fill="#1188dd"') || !fileSvg.includes('rx="6"') || fileSvg.includes("<circle") || fileIcon.iconType !== "image" || !fileIcon.comment.startsWith(fileIcon.path + " · ") || !/(just now|\d+[mhdwoy] ago)$/.test(fileIcon.comment) || fileIcon.comment.includes("Modified") || fileIcon.comment.includes("Open with") || !providerIcon.startsWith("image:") || fileMetadata.requests !== 3 || root.liveRefreshNotifications < 1) {
+                console.warn("T:FAIL themed file icon or executable badge: " + JSON.stringify({ file: fileIcon ? [fileIcon.comment, fileIcon.iconType, fileIcon.icon.slice(0, 30)] : null, requests: fileMetadata.requests, provider: providerIcon, live: root.liveRefreshNotifications, repo: repositoryIcon ? repositoryIcon.icon.slice(0, 30) : null }));
                 Qt.quit();
                 return;
             }
             compositePreview.source = fileIcon.icon.slice(4);
             repositoryPreview.source = repositoryIcon.icon.slice(4);
             compositeCheck.start();
-            root.globals.records = root.globals.records.concat([{ path: "/tmp/second-example.js", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: 0 }]);
+            checks.injectRecords([{ path: checks.fixturePath + "/second-example.js", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: 0 }]);
             const sameTypeIcon = root.launcher.getItems("second-example")[0];
             if (!sameTypeIcon || sameTypeIcon.icon !== fileIcon.icon || fileMetadata.requests !== 4) {
                 console.warn("T:FAIL file type icon cache");
                 Qt.quit();
                 return;
             }
-            root.globals.records = root.globals.records.concat([
-                { path: "/tmp/icon-fixture-one.yaml", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: 0 },
-                { path: "/tmp/icon-fixture-two.yaml", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: 0 }
+            checks.injectRecords([
+                { path: checks.fixturePath + "/icon-fixture-one.yaml", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: 0 },
+                { path: checks.fixturePath + "/icon-fixture-two.yaml", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: 0 }
             ]);
             if (root.launcher.getItems("icon-fixture").length !== 2 || fileMetadata.requests !== 6) {
                 console.warn("T:FAIL path checks for shared file type");
@@ -83,21 +116,17 @@ Item {
                 return;
             }
             folderAction.action();
-            root.globals.records = root.globals.records.concat([{ path: "/tmp/missing-project.js", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: 0 }]);
+            checks.injectRecords([{ path: "/tmp/missing-project.js", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: 0 }]);
             if (root.launcher.getItems("missing-project").length !== 1 || fileMetadata.requests !== 7) {
                 console.warn("T:FAIL initial missing-path check");
                 Qt.quit();
                 return;
             }
-            Qt.callLater(function() {
-                if (root.launcher.getItems("missing-project").length !== 0) {
-                    console.warn("T:FAIL missing result still displayed");
-                    Qt.quit();
-                }
-            });
-            root.globals.records = root.globals.records.concat([
-                { path: "/tmp/history-capped.js", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: Date.now(), openedAt: Date.now() - 10 * 86400000 },
-                { path: "/tmp/history-expired.js", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: Date.now(), openedAt: Date.now() - 2 * 365 * 86400000 }
+            missingCheck.attempts = 0;
+            missingCheck.start();
+            checks.injectRecords([
+                { path: checks.fixturePath + "/history-capped.js", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: Date.now(), openedAt: Date.now() - 10 * 86400000 },
+                { path: checks.fixturePath + "/history-expired.js", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: Date.now(), openedAt: Date.now() - 2 * 365 * 86400000 }
             ]);
             const historyCapped = root.launcher.getItems("history-capped")[0];
             if (!historyCapped || !historyCapped.comment.endsWith("1w ago") || root.launcher.getItems("history-expired").length !== 0) {
@@ -105,21 +134,23 @@ Item {
                 Qt.quit();
                 return;
             }
-            root.globals.records = root.globals.records.concat([
-                { path: "/tmp/sort-older.js", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: Date.now(), openedAt: Date.now() - 8 * 86400000 },
-                { path: "/tmp/sort-newer.js", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: Date.now() - 3600000, openedAt: Date.now() - 6 * 86400000 }
+            checks.injectRecords([
+                { path: checks.fixturePath + "/sort-older.js", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: Date.now(), openedAt: Date.now() - 8 * 86400000 },
+                { path: checks.fixturePath + "/sort-newer.js", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: Date.now() - 3600000, openedAt: Date.now() - 6 * 86400000 }
             ]);
             root.launcher.getItems("sort-");
             rankingCheck.start();
-            root.globals.records = root.globals.records.concat([{ path: "/tmp/workspace.code-workspace", kind: "workspace", provider: root.settings.providers[0].id, providerName: "VS Code", recent: 0 }]);
+            checks.injectRecords([{ path: checks.fixturePath + "/workspace.code-workspace", kind: "workspace", provider: root.settings.providers[0].id, providerName: "VS Code", recent: 0 }]);
             root.launcher.getItems("workspace.code-workspace");
             root.providerChecks.startWorkspaceCheck();
-            root.globals.records = root.globals.records.concat([{ path: "/tmp/old-project.js", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: 0 }]);
+            checks.injectRecords([{ path: "/tmp/old-project.js", kind: "file", provider: root.settings.providers[0].id, providerName: "VS Code", recent: 0 }]);
             if (root.launcher.getItems("old-project").length !== 1) {
                 console.warn("T:FAIL initial old item visibility");
                 Qt.quit();
                 return;
             }
+            // Complete one discovery transaction for all records injected above.
+            root.orchestrator.refreshDates();
             oldItemCheck.start();
         }
     }
@@ -130,7 +161,7 @@ Item {
         repeat: false
         onTriggered: {
             const results = root.launcher.getItems("sort-");
-            if (results.length !== 2 || results[0].path !== "/tmp/sort-newer.js" || results[1].path !== "/tmp/sort-older.js" || results[0].recent <= results[1].recent) {
+            if (results.length !== 2 || results[0].path !== checks.fixturePath + "/sort-newer.js" || results[1].path !== checks.fixturePath + "/sort-older.js" || results[0].recent <= results[1].recent) {
                 console.warn("T:FAIL launcher order differs from displayed age");
                 Qt.quit();
                 return;
@@ -139,12 +170,18 @@ Item {
         }
     }
 
+    // An old item disappears once its modification time has been read; poll until then.
     Timer {
         id: oldItemCheck
-        interval: 150
+        property int attempts: 0
+        interval: 100
         repeat: false
         onTriggered: {
             if (root.launcher.getItems("old-project").length !== 0) {
+                if (attempts++ < 40) {
+                    restart();
+                    return;
+                }
                 console.warn("T:FAIL old item still displayed");
                 Qt.quit();
             }

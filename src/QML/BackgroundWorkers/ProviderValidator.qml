@@ -96,7 +96,8 @@ Item {
         // Wait for the resolved command path after the process has exited.
         function inspect() {
             if (!hasExited || !hasStreamed) return;
-            const path = outputText.trim().split("\n")[0];
+            // which appends one newline; embedded newlines and trailing spaces belong to the path.
+            const path = outputText.endsWith("\n") ? outputText.slice(0, -1) : outputText;
             if (exitStatus !== 0 || !path.startsWith("/")) {
                 root.complete(false, "Choose an IDE executable that exists and can be run.", "executable");
                 return;

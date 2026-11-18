@@ -30,7 +30,7 @@ const qmlPairs = [
     ["Helpers/SettingsController.test.qml", "Helpers/SettingsController.qml"],
     ["Services/ScanOrchestrator.test.qml", "Services/ScanOrchestrator.qml"],
     ["Services/ResultItemIcon.test.qml", "Services/ResultItemIcon.qml"],
-    ["BackgroundWorkers/RepositoryScanner.test.qml", "BackgroundWorkers/RepositoryScanner.qml"]
+    ["Providers/LocalGit/LocalGitRecents.test.qml", "Providers/LocalGit/LocalGitRecents.qml"]
 ];
 for (const [testPath, sourcePath] of qmlPairs) {
     assert.ok(fs.existsSync(path.join(root, "tests/Integration/QML", testPath)), testPath + " is missing");

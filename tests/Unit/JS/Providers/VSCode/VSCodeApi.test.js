@@ -26,3 +26,11 @@ assert.equal(defaultProperties.settings.configDirectory, "~/.config/Code");
 assert.equal(defaultProperties.settings.sharedStorageDirectory, "~/.vscode-shared");
 assert.throws(() => source("Providers/VSCode/VSCodeProperties.js").create({ name: "Bad", config: "relative", executable: "code" }));
 assert.equal(defaultApi.sources(defaultProperties)[0].path, "~/.vscode-shared/sharedStorage/state.vscdb");
+
+// Real file-URL encoding preserves Unicode and legal punctuation through parsing and launch arguments.
+const { pathToFileURL } = require("node:url");
+for (const filename of ["/tmp/Värmland 日本語 العربية 😀", "/tmp/quote'\"#$%", "/tmp/line\nname\t ", "/tmp/back\\slash", "/tmp/e\u0301"]) {
+    const parsed = api.parseHistory({ history: { entries: [{ fileUri: pathToFileURL(filename).href }] }, modifiedAt: 100 }, properties);
+    assert.equal(parsed[0].path, filename);
+    assert.equal(api.launchArgs(filename, properties, "/home/test").at(-1), filename);
+}

@@ -9,6 +9,10 @@
 var descriptor = Object.freeze({
     typeId: Constants.PROVIDER_TYPE,
     name: Constants.DEFAULT_NAME,
+    // The IDE opens items, so it offers launching and an executable.
+    launchable: true,
+    // The IDE reads its own history; it does not scan folders.
+    scansFolders: false,
     fields: Object.freeze([
         Object.freeze({ key: "executable", kind: "executable", label: "IDE executable path", description: "Choose the executable used to open results.", placeholder: "/usr/bin/code", chooserTitle: "Choose IDE executable", comparison: "basename" }),
         Object.freeze({ key: "config", kind: "directory", label: "IDE data folder", description: "Stores this installation's recent history.", placeholder: Constants.DEFAULT_CONFIG_DIRECTORY, chooserTitle: "Choose IDE data folder", comparison: "exact" }),

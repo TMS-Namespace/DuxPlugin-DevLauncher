@@ -18,6 +18,13 @@ var defaultRepositoryDepth = 3;
 var minRepositoryDepth = 1;
 var maxRepositoryDepth = 20;
 var repositoryScanTimeout = "15s";
+// Modification times are read in batches of this many paths, each batch with its own timeout.
+var statBatchSize = 200;
+var statBatchTimeout = "10s";
+// The refresher abandons a stat batch that has not answered by then; the batch itself is already bounded by its timeout.
+var statBatchWatchdogMilliseconds = 12000;
+// An item's approximate date is recomputed after this much time, so a scan does not repeat the date work for every item.
+var redateMilliseconds = 60000;
 var providerValidationTimeout = "4s";
 var providerValidationDebounceMilliseconds = 350;
 var maxProviderValidationPaths = 32;
@@ -38,6 +45,5 @@ var fileServiceReconnectMilliseconds = 500;
 var maxFileServiceReconnectAttempts = 5;
 var missingPathRetryMilliseconds = 60000;
 var refreshMilliseconds = 10000;
-var startupScanDelayMilliseconds = 10000;
 var isDevMode = false;
 var errorNotificationInterval = 30000;

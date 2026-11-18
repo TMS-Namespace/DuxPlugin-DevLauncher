@@ -1,10 +1,10 @@
-// ScanOrchestrator.qml - Coordinate host-owned scans and publish unified launcher records.
+// ScanOrchestrator.qml - Coordinate host-owned scans and write each source's answer into the shared recent-items cache.
+// Every scan source is a provider: IDEs read their history, and each scanned folder is a folder provider.
 import "../../JS/Helpers/Config.js" as Config
 import "../../JS/Helpers/ConfigurationRules.js" as ConfigurationRules
 import "../../JS/Helpers/RepositoryNotificationRules.js" as RepositoryNotificationRules
-import "../BackgroundWorkers"
 import QtQuick
-import qs.Common
+import "../BackgroundWorkers"
 
 Item {
     id: root
@@ -13,27 +13,37 @@ Item {
     property string pluginId: Config.pluginId
     property string activeConfiguration: ""
     property bool rescanPending: false
-    property bool ready: false
     property bool scanRunning: false
     property var pendingProviderIds: []
     property var providerNames: ({})
-    property var records: []
-    property var errors: []
-    property var folderErrors: []
+    // The sources of the previous scan; a source that disappears from settings is dropped from the cache.
+    property var knownSourceIds: []
+    property var providerErrors: []
     property var observedFolders: []
     property var pendingNewFolders: []
     property var notificationFolders: []
-    readonly property bool startupScanPending: startupScanTimer.running
 
     // Compare settings without touching provider state or launching processes.
     function configuration() {
         return JSON.stringify(ConfigurationRules.scan(DataStorage.load("folders", Config.folders), DataStorage.load("providers", ProvidersManager.defaultConfigurations()), DataStorage.load("repositoryDepth", Config.defaultRepositoryDepth)));
     }
 
-    // Defer the automatic scan until the shell has had time to finish starting.
-    function scheduleStartup() {
-        if (ready && pluginService && !scanRunning && !startupScanTimer.running)
-            startupScanTimer.start();
+    // The identifiers of the saved scan folders, used to tell which folders were just added.
+    function folderIds(scanSettings) {
+        return scanSettings.folders.map(function(entry) { return entry.id; });
+    }
+
+    // Every configuration that becomes a provider in this scan: the IDEs, then each folder with the global depth.
+    function scanConfigurations(scanSettings) {
+        const folderConfigurations = scanSettings.folders.map(function(entry) {
+            return Object.assign({}, entry, { name: ConfigurationRules.folderName(entry), depth: scanSettings.depth });
+        });
+        return scanSettings.providers.concat(folderConfigurations);
+    }
+
+    // Settings changes invalidate discovery; the next launcher request owns the work.
+    function invalidate() {
+        pluginService.setGlobalVar(pluginId, "scannedAt", 0);
     }
 
     // Start one bounded scan, leaving a changed configuration pending until it finishes.
@@ -41,12 +51,12 @@ Item {
         if (!pluginService)
             return ;
 
-        startupScanTimer.stop();
         const nextConfiguration = configuration();
         const scanSettings = JSON.parse(nextConfiguration);
-        const newlyAdded = RepositoryNotificationRules.newlyAdded(observedFolders, scanSettings.folders);
-        pendingNewFolders = RepositoryNotificationRules.pending(pendingNewFolders, newlyAdded, scanSettings.folders);
-        observedFolders = scanSettings.folders;
+        const currentFolderIds = folderIds(scanSettings);
+        const newlyAdded = RepositoryNotificationRules.newlyAdded(observedFolders, currentFolderIds);
+        pendingNewFolders = RepositoryNotificationRules.pending(pendingNewFolders, newlyAdded, currentFolderIds);
+        observedFolders = currentFolderIds;
         if (scanRunning) {
             if (nextConfiguration !== activeConfiguration) rescanPending = true;
             return ;
@@ -54,109 +64,127 @@ Item {
         activeConfiguration = nextConfiguration;
         notificationFolders = pendingNewFolders;
         pendingNewFolders = [];
-        ProvidersManager.reload(scanSettings.providers);
+        const scanConfigs = scanConfigurations(scanSettings);
+        ProvidersManager.reload(scanConfigs);
         const names = {};
-        for (const provider of scanSettings.providers) names[provider.id] = provider.name;
+        for (const provider of scanConfigs) names[provider.id] = provider.name;
         providerNames = names;
-        Logger.debug("scan", "configured " + Object.keys(ProvidersManager.handlers).length + " IDEs and " + scanSettings.folders.length + " folders");
+        Logger.debug("scan", "configured " + Object.keys(ProvidersManager.handlers).length + " sources and " + scanSettings.folders.length + " folders");
         pendingProviderIds = Object.keys(ProvidersManager.handlers);
-        records = [];
-        errors = [];
-        folderErrors = [];
+        const removedSourceIds = knownSourceIds.filter(function(id) { return !pendingProviderIds.includes(id); });
+        RecentItemsCache.dropSources(removedSourceIds, Date.now());
+        // A copy: the pending list is emptied as each source is asked, and the known list must keep every source of this scan.
+        knownSourceIds = pendingProviderIds.slice();
+        providerErrors = [];
         scanRunning = true;
-        repositoryScanner.start(scanSettings.folders, scanSettings.depth);
-    }
-
-    // Collect repository results before asking each provider for normalized recents.
-    function acceptSnapshot(snapshot) {
-        records = snapshot.repositories || [];
-        folderErrors = snapshot.errors || [];
-        for (const failure of folderErrors) Logger.error("scan", failure.message);
         nextProvider();
     }
 
-    // Providers own every read and return only common local path records.
+    // Ask each source for its normalized recents. A source failure is kept per source and shown in its settings row;
+    // it is never toasted on every scan.
     function nextProvider() {
         if (!pendingProviderIds.length) {
-            publish();
+            refreshDates();
             return;
         }
         const providerId = pendingProviderIds.shift();
         const providerName = providerNames[providerId] || "IDE";
         const handler = ProvidersManager.handlerFor(providerId);
         if (!handler) {
-            errors = errors.concat([providerName + ": Provider is unavailable."]);
+            recordProviderError(providerId, "Provider is unavailable.");
             nextProvider();
             return;
         }
         try {
-            const started = handler.recents(function(recentItems, message, details) {
-                records = records.concat(recentItems || []);
-                // The raw provider detail goes to the log only; the user sees the friendly message in the settings list.
+            const started = handler.recents(function(recentItems, message, details, answerSucceeded) {
+                // A source may answer after this orchestrator was destroyed; then there is nothing left to publish.
+                if (!root) return;
+                // A failed answer keeps what the cache already holds for this source; a successful one replaces it.
+                // A partial answer (for example a folder that hit its time limit) carries succeeded = false explicitly.
+                const succeeded = answerSucceeded === undefined ? !message : answerSucceeded;
+                RecentItemsCache.reconcileSource(providerId, providerName, recentItems || [], succeeded, Date.now());
+                // The raw provider detail goes to the log only; the settings row shows the friendly message.
                 if (details) Logger.error("scan", providerName + ": " + details);
-                if (message) errors = errors.concat([providerName + ": " + message]);
+                if (message) recordProviderError(providerId, message);
                 nextProvider();
             });
             if (started) return;
-            errors = errors.concat([providerName + ": Could not start IDE history read."]);
+            recordProviderError(providerId, "Could not start the history read.");
         } catch (caughtError) {
             Logger.error("scan", String(caughtError));
-            errors = errors.concat([providerName + ": " + (caughtError.userMessage || "Could not read IDE history.")]);
+            recordProviderError(providerId, caughtError.userMessage || "Could not read recent items.");
         }
         nextProvider();
+    }
+
+    // Finish this requested scan with bounded date checks, then publish the ordered snapshot once.
+    function refreshDates() {
+        const stale = RecentItemsCache.stalePaths(Date.now());
+        if (!stale.length) {
+            publish();
+            return;
+        }
+        dateRefresher.refresh(stale, function(modifiedByPath, missing) {
+            if (!root) return;
+            RecentItemsCache.applyModifiedTimes(modifiedByPath, missing, Date.now(), false);
+            publish();
+        });
+    }
+
+    // Keep one error record for a source; the list is replaced on every scan.
+    function recordProviderError(providerId, message) {
+        providerErrors = providerErrors.concat([{ providerId: providerId, message: message }]);
     }
 
     // Publish one complete snapshot for deduplication and icon checks in the launcher.
     function publish() {
         scanRunning = false;
-        pluginService.setGlobalVar(pluginId, "records", records);
+        RecentItemsCache.commit();
         pluginService.setGlobalVar(pluginId, "scannedAt", Date.now());
-        // The current Dux launcher refreshes active searches through this host signal.
-        SettingsData.launcherPluginVisibilityChanged();
-        // Folder scan errors are published for the settings folder list, which shows them next to each folder.
-        pluginService.setGlobalVar(pluginId, "folderErrors", folderErrors);
-        // Only folders added since the last scan can produce a toast; all other folder errors stay in the settings list.
-        const newlyAddedErrors = RepositoryNotificationRules.messages(folderErrors, notificationFolders);
-        const allErrors = newlyAddedErrors.concat(errors, ProvidersManager.loadErrors.map(function(error) {
-            return error.name + ": " + error.userMessage;
-        }));
-        if (allErrors.length)
-            ErrorHandler.report("scan", allErrors.join("\n"));
+        // Scan errors of every source are published for the settings page, which shows each one on its own row.
+        const loadFailures = ProvidersManager.loadErrors.map(function(error) { return { providerId: error.providerId, message: error.userMessage }; });
+        const sourceErrors = providerErrors.concat(loadFailures);
+        pluginService.setGlobalVar(pluginId, "providerErrors", sourceErrors);
+        // Only a folder added since the last scan can produce a toast. Every other error stays in the settings page,
+        // because a scan runs again and again and a repeated toast would spam the user.
+        const newlyAddedErrors = RepositoryNotificationRules.messages(sourceErrors, notificationFolders);
+        if (newlyAddedErrors.length)
+            ErrorHandler.report("scan", newlyAddedErrors.join("\n"));
 
-        Logger.debug("scan", "finished with " + records.length + " records");
-        if (rescanPending) {
+        Logger.debug("scan", "finished with " + RecentItemsCache.ordered.length + " cached items");
+        if (rescanPending || configuration() !== activeConfiguration) {
             rescanPending = false;
-            Qt.callLater(refresh);
+            invalidate();
         }
     }
 
     Component.onCompleted: {
-        ready = true;
         DataStorage.configure(pluginService);
-        if (pluginService) observedFolders = ConfigurationRules.folders(DataStorage.load("folders", Config.folders));
-        scheduleStartup();
+        RecentItemsCache.start();
+        if (pluginService) observedFolders = folderIds({ folders: ConfigurationRules.folderEntries(DataStorage.load("folders", Config.folders)) });
     }
     onPluginServiceChanged: {
         DataStorage.configure(pluginService);
-        if (ready && pluginService) {
-            observedFolders = ConfigurationRules.folders(DataStorage.load("folders", Config.folders));
-            scheduleStartup();
-        }
+        RecentItemsCache.start();
+        if (pluginService)
+            observedFolders = folderIds({ folders: ConfigurationRules.folderEntries(DataStorage.load("folders", Config.folders)) });
 
     }
 
     Connections {
         function onPluginDataChanged(changedPluginId) {
             if (changedPluginId === root.pluginId && root.configuration() !== root.activeConfiguration)
-                root.refresh();
+                root.invalidate();
 
         }
 
         function onGlobalVarChanged(changedPluginId, name) {
+            // A destroyed orchestrator may still receive host signals; it must not start a scan then.
+            if (!root) return;
             if (changedPluginId === root.pluginId && name === "refreshRequest")
                 root.refresh();
             if (changedPluginId === root.pluginId && name === "settingsRevision" && root.configuration() !== root.activeConfiguration)
-                root.refresh();
+                root.invalidate();
 
         }
 
@@ -164,19 +192,6 @@ Item {
         enabled: root.pluginService !== null
     }
 
-    Timer {
-        id: startupScanTimer
-        interval: Config.startupScanDelayMilliseconds
-        repeat: false
-        onTriggered: root.refresh()
-    }
-
-    RepositoryScanner {
-        id: repositoryScanner
-
-        onFinished: (snapshot) => {
-            return root.acceptSnapshot(snapshot);
-        }
-    }
+    DateRefresher { id: dateRefresher }
 
 }

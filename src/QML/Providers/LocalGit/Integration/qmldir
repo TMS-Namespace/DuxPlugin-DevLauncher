@@ -1,0 +1,2 @@
+module DevLauncher.Providers.LocalGit.Integration
+LocalGitProvider 1.0 LocalGitProvider.qml

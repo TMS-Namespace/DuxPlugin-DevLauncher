@@ -16,6 +16,8 @@ function validate(descriptor) {
     if (!descriptor || typeof descriptor !== "object") invalid("descriptor is not an object");
     if (typeof descriptor.typeId !== "string" || !descriptor.typeId) invalid("typeId");
     if (typeof descriptor.name !== "string" || !descriptor.name) invalid("name");
+    if (typeof descriptor.launchable !== "boolean") invalid("launchable");
+    if (typeof descriptor.scansFolders !== "boolean") invalid("scansFolders");
     if (!Array.isArray(descriptor.fields)) invalid("fields");
     for (const field of descriptor.fields) {
         if (!field || typeof field.key !== "string" || !field.key) invalid("field key");

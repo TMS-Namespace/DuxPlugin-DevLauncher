@@ -115,17 +115,17 @@ QtObject {
             "removing an IDE after cancel acted on a stale row: " + current.editIndex + " " + providerNames(current.providers));
     }
 
-    // A folder's latest scan error appears on that folder's own row, loaded at start and refreshed when the scan publishes.
+    // A folder's latest scan error appears on that folder's own row, matched by its identifier, and clears after a clean scan.
     function checkFolderScanErrorShown() {
         const folderPath = root.fixtureRoot + "/sample";
         const otherPath = root.fixtureRoot + "/other-root";
-        const message = "Repository folder " + folderPath + " was not scanned because the limit of 500 repositories was already reached.";
-        root.settings.folders = [folderPath, otherPath];
-        root.testPluginService.setGlobalVar("devLauncher", "folderErrors", [{ path: folderPath, message: message }]);
+        const message = "Repository folder " + folderPath + " has more than 500 repositories; only the first 500 are listed.";
+        root.settings.folders = [{ id: secondIdentifier, type: "localgit", folder: folderPath }, { id: thirdIdentifier, type: "localgit", folder: otherPath }];
+        root.testPluginService.setGlobalVar("devLauncher", "providerErrors", [{ providerId: secondIdentifier, message: message }]);
         const current = createController([savedProvider(firstIdentifier, "Alpha", [])]);
-        if (!expect(current.scanErrorFor(folderPath) === message && current.scanErrorFor(otherPath) === "", "folder error was not loaded onto its own row")) return false;
-        root.testPluginService.setGlobalVar("devLauncher", "folderErrors", []);
-        return expect(current.scanErrorFor(folderPath) === "", "a cleared scan result kept the old folder error");
+        if (!expect(current.providerErrorFor(secondIdentifier) === message && current.providerErrorFor(thirdIdentifier) === "", "folder error was not loaded onto its own row")) return false;
+        root.testPluginService.setGlobalVar("devLauncher", "providerErrors", []);
+        return expect(current.providerErrorFor(secondIdentifier) === "", "a clean scan kept the old folder error");
     }
 
     // Editing an IDE's executable clears only the dependent defaults the provider declares, and the labels come from its descriptor.
@@ -143,4 +143,15 @@ QtObject {
         return expect(labels.label === "IDE executable path" && labels.chooserTitle === "Choose IDE executable" && current.fieldFor("config").kind === "directory",
             "field labels did not come from the provider declaration: " + JSON.stringify(labels));
     }
+
+    // An IDE's scan error shows on that IDE's own row, and clears when a later scan publishes no error for it.
+    function checkProviderErrorShown() {
+        const message = "IDE history read did not finish.";
+        root.testPluginService.setGlobalVar("devLauncher", "providerErrors", [{ providerId: firstIdentifier, message: message }]);
+        const current = createController([savedProvider(firstIdentifier, "Alpha", []), savedProvider(secondIdentifier, "Beta", [])]);
+        if (!expect(current.providerErrorFor(firstIdentifier) === message && current.providerErrorFor(secondIdentifier) === "", "the IDE error was not shown on its own row")) return false;
+        root.testPluginService.setGlobalVar("devLauncher", "providerErrors", []);
+        return expect(current.providerErrorFor(firstIdentifier) === "", "a clean scan kept the old IDE error");
+    }
+
 }

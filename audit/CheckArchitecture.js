@@ -12,16 +12,18 @@ function check(directory) {
         const declared = registrations.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith("#") && !line.startsWith("module "));
         const registeredFiles = declared.map(line => line.split(/\s+/).pop()).filter(name => name.endsWith(".qml"));
         assert.deepEqual(registeredFiles.slice().sort(), files.map(file => file.name).sort(), directory + " must register exactly its QML files");
+        // A provider reader is the only QML file in a provider folder that runs processes or calls the provider API.
+        const isProviderReader = (name) => /^Providers\/[A-Za-z]+\/[A-Za-z]+Recents\.qml$/.test(name);
         for (const file of files) {
             assert.match(registrations, new RegExp("\\b" + file.name.replace(".qml", "") + "\\s+[^\\n]*" + file.name.replace(".", "\\.") + "\\b"));
             const source = fs.readFileSync(path.join(directory, file.name), "utf8");
             const relative = path.relative(path.resolve(__dirname, "../src/QML"), path.join(directory, file.name));
             const registration = declared.find(line => line.split(/\s+/).pop() === file.name) || "";
             assert.equal(registration.startsWith("singleton "), /^\s*pragma Singleton\s*$/m.test(source), relative + " singleton registration differs from its pragma");
-            if (source.includes("Process {")) assert.ok(relative.startsWith("BackgroundWorkers/") || relative === "Providers/VSCode/VSCodeRecents.qml", relative);
+            if (source.includes("Process {")) assert.ok(relative.startsWith("BackgroundWorkers/") || isProviderReader(relative), relative);
             if (source.includes("QtQuick.LocalStorage")) assert.equal(relative, "Providers/VSCode/HistoryDatabase.qml");
             if (source.includes("HistoryPayload") || source.includes("historyDatabase") || source.includes("VSCodeReadCommands")) assert.ok(relative.startsWith("Providers/VSCode/"), relative);
-            if (source.includes("api.sources(") || source.includes("api.parseHistory(")) assert.equal(relative, "Providers/VSCode/VSCodeRecents.qml");
+            if (source.includes("api.sources(") || source.includes("api.parseHistory(")) assert.ok(isProviderReader(relative), relative);
             if (relative === "Services/ScanOrchestrator.qml") {
                 assert.ok(!source.includes(".sources("), "orchestrator must not read provider sources");
                 assert.ok(!source.includes(".parseHistory("), "orchestrator must not parse provider payloads");
@@ -31,7 +33,7 @@ function check(directory) {
             if (source.includes("DesktopEntries.applications") || source.includes("svgReaderType")) assert.equal(relative, "Services/ResultItemIcon.qml");
             if (source.includes("setPluginData(") || source.includes("getPluginData(")) assert.equal(relative, "Services/DataStorage.qml");
             if (source.includes("VSCodeApi.js") || source.includes("VSCodeProperties.js")) assert.equal(relative, "Services/ProvidersManager.qml");
-            if (relative !== "Services/ProviderHandler.qml" && relative !== "Providers/VSCode/VSCodeRecents.qml")
+            if (relative !== "Services/ProviderHandler.qml" && !isProviderReader(relative))
                 assert.ok(!/\b(?:api|parts\.api)\.(?:sources|parseHistory|launchArgs|validationArgs|validationPaths|validateExecutable|validateArguments|validateHistory)\s*\(/.test(source), relative + " reaches around the provider facade");
         }
     }

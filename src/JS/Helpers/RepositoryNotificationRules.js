@@ -12,11 +12,12 @@ function pending(previousPending, added, current) {
     return combined.filter(function(folder, index) { return (current || []).includes(folder) && combined.indexOf(folder) === index; });
 }
 
-// Notification policy for folder scan errors:
+// Notification policy for scan errors of folder sources:
 // - A folder that was just added gets its scan error as a toast, once, on its first scan.
-// - Every other folder error (an existing folder that fails on later scans, or a folder skipped by the repository cap)
-//   is never toasted, because a scan runs again and again and would spam the user. Those errors appear only in the
-//   settings folder list (see SettingsController.scanErrorFor) and in the development log.
-function messages(errors, newlySelected) {
-    return (errors || []).filter(function(failure) { return (newlySelected || []).includes(failure.path); }).map(function(failure) { return failure.message; });
+// - Every other scan error (an existing folder that fails on later scans, a folder over the repository limit,
+//   or an IDE that fails to read) is never toasted, because a scan runs again and again and would spam the user.
+//   Those errors appear only in the settings page, next to the folder or IDE, and in the development log.
+// Errors are matched by source identifier, so two folders with the same path are still told apart.
+function messages(errors, newlySelectedIds) {
+    return (errors || []).filter(function(failure) { return (newlySelectedIds || []).includes(failure.providerId); }).map(function(failure) { return failure.message; });
 }

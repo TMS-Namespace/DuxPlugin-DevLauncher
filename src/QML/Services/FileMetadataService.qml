@@ -6,6 +6,7 @@ import qs.DCommon.Common
 import "../../JS/Helpers/Config.js" as Config
 import "../../JS/Helpers/FileMetadataRules.js" as FileMetadataRules
 import "../../JS/Helpers/FileStatusRules.js" as FileStatusRules
+import "../../JS/Helpers/CacheRules.js" as CacheRules
 
 QtObject {
     id: root
@@ -16,11 +17,14 @@ QtObject {
     property var queue: []
     property int activeLookups: 0
     property int connectionChecks: 0
+    // Entry counts kept beside the caches, so trimming never has to count keys.
+    property int pathCount: 0
+    property int iconCount: 0
     property Component timeoutType: Component { Timer { repeat: false } }
     signal metadataChanged()
 
-    // Verify every displayed path once while sharing its icon name by file type.
-    function request(items) {
+    // Verify displayed paths while sharing icons by type. Redraws may load new paths but cannot retry cached ones.
+    function request(items, refreshCached) {
         const visible = {};
         for (const item of items.slice(0, Config.maxResults)) visible[item.path] = true;
         wanted = visible;
@@ -38,7 +42,7 @@ QtObject {
         const now = Date.now();
         for (const item of items.slice(0, Config.maxResults)) {
             const path = item.path;
-            if ((pathCache[path] && pathCache[path].expiresAt > now) || pending[path] || queue.length + activeLookups >= Config.maxIconQueue) continue;
+            if ((pathCache[path] && (refreshCached === false || pathCache[path].expiresAt > now)) || pending[path] || queue.length + activeLookups >= Config.maxIconQueue) continue;
             pending[path] = true;
             queue = queue.concat([{ path: path, kind: item.kind }]);
         }
@@ -66,19 +70,18 @@ QtObject {
                 const entry = result && !result.error ? (result.entry || result) : null;
                 const isMissing = FileStatusRules.missing(result);
                 const now = Date.now();
-                const updatedPaths = Object.assign({}, pathCache);
-                updatedPaths[path] = { exists: !isMissing, modifiedAt: entry ? Number(entry.mtimeMs) || 0 : 0, expiresAt: now + (isMissing ? Config.missingPathRetryMilliseconds : entry ? Config.iconCacheMilliseconds : Config.iconLookupTimeoutMilliseconds) };
-                const checkedPaths = Object.keys(updatedPaths);
-                for (const oldPath of checkedPaths.slice(0, Math.max(0, checkedPaths.length - Config.maxMetadataEntries))) delete updatedPaths[oldPath];
-                pathCache = updatedPaths;
+                // The cache is updated in place and trimmed by evicting its oldest entries, so no copy is made per lookup.
+                const isNewPath = !Object.prototype.hasOwnProperty.call(pathCache, path);
+                pathCache[path] = { exists: !isMissing, modifiedAt: entry ? Number(entry.mtimeMs) || 0 : 0, expiresAt: now + (isMissing ? Config.missingPathRetryMilliseconds : entry ? Config.iconCacheMilliseconds : Config.iconLookupTimeoutMilliseconds) };
+                if (isNewPath) pathCount++;
+                if (pathCount > Config.maxMetadataEntries) pathCount -= CacheRules.evictOldest(pathCache, pathCount - Config.maxMetadataEntries);
                 if (entry) {
                     const iconName = String(entry.iconName || "");
                     if (!cache[key] || cache[key].expiresAt <= now) {
-                        const updatedIcons = Object.assign({}, cache);
-                        updatedIcons[key] = { iconName: iconName, expiresAt: now + (iconName ? Config.iconCacheMilliseconds : Config.iconLookupTimeoutMilliseconds) };
-                        const iconKeys = Object.keys(updatedIcons);
-                        for (const oldKey of iconKeys.slice(0, Math.max(0, iconKeys.length - Config.maxIconEntries))) delete updatedIcons[oldKey];
-                        cache = updatedIcons;
+                        const isNewIcon = !Object.prototype.hasOwnProperty.call(cache, key);
+                        cache[key] = { iconName: iconName, expiresAt: now + (iconName ? Config.iconCacheMilliseconds : Config.iconLookupTimeoutMilliseconds) };
+                        if (isNewIcon) iconCount++;
+                        if (iconCount > Config.maxIconEntries) iconCount -= CacheRules.evictOldest(cache, iconCount - Config.maxIconEntries);
                     }
                 }
                 if (wanted[path]) refreshTimer.restart();
@@ -93,24 +96,6 @@ QtObject {
                 complete({ "error": "unavailable" });
             }
         }
-    }
-
-    // Keep confirmed missing paths out of the next launcher result page.
-    function available(path) {
-        const status = pathCache[path];
-        return !status || status.expiresAt <= Date.now() || status.exists;
-    }
-
-    // Give result filtering the latest completed path check when it is fresh.
-    function statusFor(path) {
-        const status = pathCache[path];
-        return status && status.expiresAt > Date.now() ? status : null;
-    }
-
-    // Return a recently verified modification time without starting another read.
-    function cachedModifiedAt(path) {
-        const status = pathCache[path];
-        return status && status.exists && status.expiresAt > Date.now() ? status.modifiedAt : 0;
     }
 
     // Return a cached icon name; result icon composition lives in ResultItemIcon.

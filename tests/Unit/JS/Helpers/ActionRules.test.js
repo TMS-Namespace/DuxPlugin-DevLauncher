@@ -1,10 +1,12 @@
 // ActionRules.test.js - Check per-result actions and details.
 const assert = require("node:assert/strict");
 const source = require("../../../Helpers/LoadSource.cjs");
-const { codeId, codiumId, records, configured } = require("../../../Helpers/ProviderFixture.cjs");
+const { codeId, codiumId, configured } = require("../../../Helpers/ProviderFixture.cjs");
 const rules = source("Helpers/LauncherRules.js");
-const merged = rules.merge(records.concat([{ path: "/tmp/project", kind: "repository", provider: "", recent: 0 }]), {});
-const entries = rules.items(merged, "project @VSCodium", 10, configured, codeId);
+// A project that VS Code reported and a repository scan also found: one cache entry with both sources, ordered by date.
+const cacheEntry = { path: "/tmp/project", name: "project", kind: "repository", date: 100, count: 0, lastIde: "", modifiedAt: 0, statAt: 0, datedAt: Date.now(), launchedAt: 0, scannedAt: Date.now(),
+    sources: [{ id: codeId, name: "Code", openedAt: 100 }, { id: codiumId, name: "VSCodium", openedAt: 50 }] };
+const entries = rules.items([cacheEntry], "project @VSCodium", { limit: 10, providers: configured, defaultProvider: codeId, cutoff: 0, searchPaths: false, now: Date.now() });
 const actionRules = source("Helpers/ActionRules.js");
 assert.deepEqual(Array.from(actionRules.actions(entries[0], configured), action => action.operation), ["provider", "provider", "system", "location", "copy", "details"]);
 assert.equal(actionRules.actions(entries[0], configured)[1].provider, codiumId);
@@ -18,6 +20,6 @@ for (const kind of ["file", "workspace"]) {
     assert.equal(location.path, "/tmp");
 }
 assert.equal(actionRules.actions({ path: "/tmp/project", kind: "folder" }, []).find(action => action.operation === "location").path, "/tmp/project");
-assert.match(actionRules.details(entries[0], 1700000000000), /Path: \/tmp\/project\nSource: Code, Git repository scan\nModified: 2023-11-14T22:13:20.000Z/);
+assert.match(actionRules.details(entries[0], 1700000000000), /Path: \/tmp\/project\nSource: Code, VSCodium\nModified: 2023-11-14T22:13:20.000Z/);
 assert.match(actionRules.details(entries[0], 1700000000000), /Provider history date \(approx\.\): 1970-01-01T00:00:00.100Z/);
 assert.match(actionRules.details(entries[0], Infinity), /Modified: Unavailable/);

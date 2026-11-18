@@ -1,5 +1,6 @@
 // DataStorage.qml - The only plugin object that reads and writes saved Dux plugin settings.
 import "../../JS/Helpers/Config.js" as Config
+import "../../JS/Helpers/ConfigurationRules.js" as ConfigurationRules
 import "../../JS/Helpers/SettingsIntegrity.js" as SettingsIntegrity
 import QtQml
 import qs.Common
@@ -8,12 +9,28 @@ pragma Singleton
 QtObject {
     property var pluginService: null
     property var reportedDamage: ({})
+    // Set once the folders saved in the earliest format have been converted to folder entries.
+    property bool foldersMigrated: false
 
     // Attach the host service after it becomes available to any plugin surface.
     function configure(service) {
         if (service)
             pluginService = service;
+        migrateFolders();
+    }
 
+    // Convert folders saved as plain path strings into folder entries, once, before any reader gets them. Each entry needs a
+    // stable identifier, so the converted list is saved; converting on every load would give each load new identifiers.
+    function migrateFolders() {
+        if (foldersMigrated || !pluginService) return;
+        const typeId = ProvidersManager.folderTypeId();
+        if (!typeId) return;
+        const value = pluginService.loadPluginData(Config.pluginId, "folders", undefined);
+        if (!Array.isArray(value) || !value.some(function(item) { return typeof item === "string"; })) {
+            foldersMigrated = true;
+            return;
+        }
+        foldersMigrated = save("folders", ConfigurationRules.migratedFolders(value, typeId));
     }
 
     // Return the declared default until Dux attaches its settings service.

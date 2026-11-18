@@ -81,6 +81,7 @@ Column {
             readonly property alias editorBackground: editorCard
             readonly property alias editButton: editIdeButton
             readonly property alias removeButton: removeIdeButton
+            readonly property alias scanErrorText: providerScanError.text
             Rectangle {
                 id: providerRowBackground
                 width: parent.width
@@ -120,6 +121,16 @@ Column {
                     }
                     DActionButton { id: removeIdeButton; iconName: "close"; tooltipText: "Remove IDE"; onClicked: root.confirmRemoval(modelData) }
                 }
+            }
+            // The IDE's latest scan error, shown only here (never as a repeated toast).
+            StyledText {
+                id: providerScanError
+                visible: text !== ""
+                text: root.controller.providerErrorFor(modelData.id)
+                color: Theme.error
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
+                width: parent.width
             }
             Rectangle {
                 id: editorCard

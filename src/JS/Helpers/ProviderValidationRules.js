@@ -22,8 +22,8 @@ function targets(values) {
 // Report the first executable or declared resource reused by another installation.
 function duplicate(candidate, existing) {
     if (candidate.type !== existing.type) return "";
-    const candidateExecutable = String(candidate.executable || "").trim();
-    const existingExecutable = String(existing.executable || "").trim();
+    const candidateExecutable = String(candidate.executable || "");
+    const existingExecutable = String(existing.executable || "");
     const sameExecutable = candidateExecutable === existingExecutable
         || (candidateExecutable.startsWith("/") && existingExecutable.startsWith("/") && PathRules.localPath(candidateExecutable) === PathRules.localPath(existingExecutable))
         || (candidateExecutable.indexOf("/") < 0 && existingExecutable.split("/").pop() === candidateExecutable)

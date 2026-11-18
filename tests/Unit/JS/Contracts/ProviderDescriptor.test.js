@@ -23,3 +23,8 @@ refused(withField({ comparison: "fuzzy" }));
 refused(withField({ label: undefined }));
 refused(Object.assign({}, vsCode, { dependents: { executable: "config" } }));
 refused(Object.assign({}, vsCode, { dependents: { executable: [1] } }));
+
+// Every declaration says whether the provider can open items; a missing or non-boolean value is refused.
+refused(Object.assign({}, vsCode, { launchable: undefined }));
+refused(Object.assign({}, vsCode, { launchable: "yes" }));
+assert.equal(descriptors.validate(Object.assign({}, vsCode, { launchable: false })).launchable, false);

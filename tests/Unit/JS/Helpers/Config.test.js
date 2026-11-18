@@ -11,4 +11,3 @@ assert.equal(manifest.icon, "account_tree");
 assert.equal(defaults.searchPaths, false);
 assert.deepEqual({ ...defaults.defaultAgeFilter }, { value: 3, unit: "months" });
 assert.equal(defaults.refreshMilliseconds, 10000);
-assert.equal(defaults.startupScanDelayMilliseconds, 10000);

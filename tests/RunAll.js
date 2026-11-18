@@ -41,9 +41,12 @@ function runQml() {
         fs.mkdirSync(path.join(project, ".git"), { recursive: true });
         fs.mkdirSync(path.join(secondProject, ".git"), { recursive: true });
         fs.mkdirSync(path.join(fixture, "unreadable"), { mode: 0o000 });
+        fs.mkdirSync(path.join(fixture, "private-stat"), { mode: 0o000 });
         // A folder with exactly the repository cap lets the regression harness prove that the next folder is reported.
         for (let index = 0; index < 500; index++) fs.mkdirSync(path.join(fixture, "many-root", "repo-" + index, ".git"), { recursive: true });
         fs.writeFileSync(recentFile, "export const fixture = true;\n");
+        // Injected launcher items must exist, because a stat refresh drops the items whose files are missing.
+        for (const name of ["second-example.js","icon-fixture-one.yaml","icon-fixture-two.yaml","history-capped.js","history-expired.js","sort-older.js","sort-newer.js","workspace.code-workspace"]) fs.writeFileSync(path.join(fixture, name), "fixture\n");
         fs.mkdirSync(path.join(dataFolder, "User", "globalStorage"), { recursive: true });
         fs.mkdirSync(path.join(secondDataFolder, "User", "globalStorage"), { recursive: true });
         fs.mkdirSync(path.join(fixture, "UnreadableHistory", "User", "globalStorage"), { recursive: true });
@@ -63,7 +66,13 @@ function runQml() {
         fs.writeFileSync(codeInsiders, '#!/bin/sh\nfor argument do\n  if [ "$argument" = "--bad-switch" ]; then printf "Warning: bogus-switch is not in the list of known options\\n" >&2; fi\ndone\nprintf "1.99.0\\n"\n', { mode: 0o755 });
         fs.writeFileSync(systemOpen, '#!/bin/sh\nprintf "%s\\n" "$@" >> "$DEV_LAUNCHER_SYSTEM_LAUNCH_FILE"\n', { mode: 0o755 });
         fs.writeFileSync(find, '#!/bin/sh\ncase "$1" in */blocked-root) printf "find: %s: Permission denied\\n" "$1" >&2; exit 1;; esac\nexec /usr/bin/find "$@"\n', { mode: 0o755 });
-        const environment = { ...process.env, QT_QPA_PLATFORM: "offscreen", XDG_RUNTIME_DIR: runtime, XDG_CACHE_HOME: path.join(fixture, "cache"), XDG_DATA_HOME: path.join(fixture, "data"), DEV_LAUNCHER_FIXTURE: fixture, DEV_LAUNCHER_CODE_PATH: code, DEV_LAUNCHER_CODE_INSIDERS_PATH: codeInsiders, DEV_LAUNCHER_PLUGIN_ROOT: path.resolve(__dirname, ".."), DEV_LAUNCHER_LAUNCH_FILE: launchFile, DEV_LAUNCHER_SYSTEM_LAUNCH_FILE: systemLaunchFile, PATH: bin + ":" + process.env.PATH, NO_COLOR: "1" };
+        const unicodeRoot = path.join(fixture, "Unicode 日本語 العربية 😀 '\"$`\\\n\t ");
+        fs.mkdirSync(unicodeRoot);
+        fs.copyFileSync(code, path.join(unicodeRoot, "code"));
+        fs.chmodSync(path.join(unicodeRoot, "code"), 0o755);
+        fs.copyFileSync(path.join(fixture, "it's", "state.vscdb"), path.join(unicodeRoot, "state.vscdb"));
+        fs.writeFileSync(path.join(unicodeRoot, "file\nname\t "), "fixture");
+        const environment = { ...process.env, DEV_LAUNCHER_UNICODE_ROOT: unicodeRoot, QT_QPA_PLATFORM: "offscreen", XDG_RUNTIME_DIR: runtime, XDG_CACHE_HOME: path.join(fixture, "cache"), XDG_DATA_HOME: path.join(fixture, "data"), DEV_LAUNCHER_FIXTURE: fixture, DEV_LAUNCHER_CODE_PATH: code, DEV_LAUNCHER_CODE_INSIDERS_PATH: codeInsiders, DEV_LAUNCHER_PLUGIN_ROOT: path.resolve(__dirname, ".."), DEV_LAUNCHER_LAUNCH_FILE: launchFile, DEV_LAUNCHER_SYSTEM_LAUNCH_FILE: systemLaunchFile, PATH: bin + ":" + process.env.PATH, NO_COLOR: "1" };
         for (const name of ["DISPLAY", "WAYLAND_DISPLAY", "QT_QPA_PLATFORMTHEME", "QT_QPA_PLATFORMTHEME_QT6"]) delete environment[name];
         runShell("tests/Helpers/Harness/shell.qml", environment, 12000, "T:PASS QML entry points", "QML integration");
         runShell("tests/Helpers/Harness/regression.qml", environment, 12000, "T:PASS regression fixes", "QML regression checks");
@@ -85,7 +94,13 @@ function runLive() {
     try {
         const runtime = path.join(fixture, "runtime");
         fs.mkdirSync(runtime, { mode: 0o700 });
-        const environment = { ...process.env, QT_QPA_PLATFORM: "offscreen", XDG_RUNTIME_DIR: runtime, XDG_DATA_HOME: path.join(fixture, "data"), DEV_LAUNCHER_PLUGIN_ROOT: path.resolve(__dirname, "..") };
+        const unicodeRoot = path.join(fixture, "Unicode 日本語 العربية 😀 '\"$`\\\n\t ");
+        fs.mkdirSync(unicodeRoot);
+        fs.copyFileSync(code, path.join(unicodeRoot, "code"));
+        fs.chmodSync(path.join(unicodeRoot, "code"), 0o755);
+        fs.copyFileSync(path.join(fixture, "it's", "state.vscdb"), path.join(unicodeRoot, "state.vscdb"));
+        fs.writeFileSync(path.join(unicodeRoot, "file\nname\t "), "fixture");
+        const environment = { ...process.env, DEV_LAUNCHER_UNICODE_ROOT: unicodeRoot, QT_QPA_PLATFORM: "offscreen", XDG_RUNTIME_DIR: runtime, XDG_DATA_HOME: path.join(fixture, "data"), DEV_LAUNCHER_PLUGIN_ROOT: path.resolve(__dirname, "..") };
         for (const name of ["DISPLAY", "WAYLAND_DISPLAY", "QT_QPA_PLATFORMTHEME", "QT_QPA_PLATFORMTHEME_QT6"]) delete environment[name];
         const result = spawnSync("quickshell", ["-p", "tests/Integration/Live/Providers/VSCode/HistoryDatabase.test.qml"], { cwd: path.resolve(__dirname, ".."), env: environment, encoding: "utf8", timeout: 8000 });
         const output = (result.stdout || "") + (result.stderr || "");

@@ -49,4 +49,16 @@ QtObject {
             root.settings.usage = previousUsage;
         }
     }
+
+    // Searching only filters the ordered cache: typing never orders it, and a scan orders it exactly once.
+    function checkRankingIsCached() {
+        const launcher = fixture.launcher;
+        const before = Services.RecentItemsCache.sortCount;
+        launcher.getItems("alpha");
+        launcher.getItems("beta");
+        launcher.getItems("gamma");
+        if (!expect(Services.RecentItemsCache.sortCount === before, "typing ordered the cache " + (Services.RecentItemsCache.sortCount - before) + " times")) return false;
+        Services.RecentItemsCache.commit();
+        return expect(Services.RecentItemsCache.sortCount === before + 1, "a scan did not order the cache exactly once");
+    }
 }

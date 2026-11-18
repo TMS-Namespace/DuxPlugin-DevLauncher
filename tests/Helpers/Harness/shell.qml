@@ -75,14 +75,14 @@ ShellRoot {
         orchestrator = orchestratorComponent.createObject(testWindow.contentItem, {
             "pluginService": pluginService
         });
-        if (!orchestrator || !orchestrator.startupScanPending || root.globals.scannedAt !== undefined || orchestrator.notificationFolders.length !== 0) {
-            console.warn("T:FAIL startup scan was not deferred");
+        if (!orchestrator || orchestrator.scanRunning || root.globals.scannedAt !== undefined || orchestrator.notificationFolders.length !== 0) {
+            console.warn("T:FAIL orchestrator started scanning without a search");
             Qt.quit();
             return;
         }
         launcher.getItems("sample");
-        if (orchestrator.startupScanPending || !root.globals.refreshRequest) {
-            console.warn("T:FAIL search did not start deferred scan on demand");
+        if (!orchestrator.scanRunning || !root.globals.refreshRequest) {
+            console.warn("T:FAIL search did not start scan on demand");
             Qt.quit();
             return;
         }

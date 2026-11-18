@@ -2,34 +2,54 @@
 .pragma library
 .import "Config.js" as Config
 .import "PathRules.js" as PathRules
+.import "ProviderIdentity.js" as ProviderIdentity
 
-// Explain why one selected folder cannot be added to the scan list.
-function folderAddition(value, currentFolders) {
+// Explain why one selected folder cannot be added. The current list holds folder entries, each with its own folder path.
+function folderAddition(value, currentEntries) {
     if (typeof value !== "string") return { path: "", error: "Choose a local folder." };
     const path = PathRules.localPath(value);
     if (!path) return { path: "", error: "Choose a local folder." };
-    for (const existing of currentFolders || []) {
-        const selected = PathRules.localPath(existing);
+    for (const entry of currentEntries || []) {
+        const selected = PathRules.localPath(entry.folder);
         if (path === selected) return { path: "", error: "This folder is already being scanned: " + selected };
         if (path.startsWith(selected === "/" ? "/" : selected + "/"))
             return { path: "", error: "This folder is already covered by the scanned folder " + selected + "." };
         if (selected.startsWith(path === "/" ? "/" : path + "/"))
             return { path: "", error: "A selected folder is already being scanned inside this folder: " + selected + ". Remove it before adding the parent folder." };
     }
-    if ((currentFolders || []).length >= Config.maxScanFolders)
+    if ((currentEntries || []).length >= Config.maxScanFolders)
         return { path: "", error: "You can scan at most " + Config.maxScanFolders + " folders." };
     return { path: path, error: "" };
 }
 
-// Keep current folder lists unique, non-overlapping, and within the scanner limit.
-function folders(value) {
+// The name shown for one scanned folder: a generated alias from the start of its own identifier.
+function folderName(entry) { return "Folder " + String(entry.id).slice(0, 6); }
+
+// Keep only valid folder entries: each needs its own identifier and a source type, and the folders must be unique,
+// non-overlapping, and within the scanner limit. Anything else is dropped, so the saved list is replaced by a valid one.
+function folderEntries(value) {
     const entries = Array.isArray(value) ? value : [];
     const selected = [];
-    for (const folder of entries) {
-        const addition = folderAddition(folder, selected);
-        if (addition.path) selected.push(addition.path);
+    for (const entry of entries) {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry) || !ProviderIdentity.valid(entry.id) || typeof entry.type !== "string" || !entry.type) continue;
+        if (selected.some(function(existing) { return existing.id === entry.id; })) continue;
+        const addition = folderAddition(entry.folder, selected);
+        if (addition.path) selected.push(Object.assign({}, entry, { folder: addition.path }));
     }
     return selected;
+}
+
+// Convert folders saved in the earliest format (plain path strings) into folder entries with new unique identifiers.
+// Entries already in the current format are kept as they are.
+function migratedFolders(value, typeId) {
+    if (!Array.isArray(value)) return value;
+    const taken = value.filter(function(item) { return item && typeof item === "object" && ProviderIdentity.valid(item.id); }).map(function(item) { return item.id; });
+    return value.map(function(item) {
+        if (typeof item !== "string") return item;
+        const id = ProviderIdentity.create(taken);
+        taken.push(id);
+        return { id: id, type: typeId, folder: item };
+    });
 }
 
 // Keep only current-format provider declarations within the configured limit.
@@ -60,5 +80,5 @@ function indexAfterRemoval(editIndex, removedIndex) {
 
 // Give the scan orchestrator plain data without parsing settings in QML.
 function scan(folderValues, providerValues, depthValue) {
-    return { folders: folders(folderValues), providers: providers(providerValues), depth: repositoryDepth(depthValue) };
+    return { folders: folderEntries(folderValues), providers: providers(providerValues), depth: repositoryDepth(depthValue) };
 }

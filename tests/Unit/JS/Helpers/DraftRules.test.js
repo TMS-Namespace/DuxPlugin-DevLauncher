@@ -32,3 +32,12 @@ assert.equal(defaultRoot.cache, "/c", "returning to the default must not clear t
 
 // A field with no declaration never clears anything.
 assert.equal(rules.applyEdit(draft, defaults, descriptor, "name", "Renamed").cache, "~/.tool-cache");
+
+// Returning the field to its default restores the folders that were cleared, so the draft can become valid again.
+const cleared = rules.applyEdit(rules.applyEdit(draft, defaults, descriptor, "binary", "/opt/other"), defaults, descriptor, "binary", "/usr/bin/tool");
+assert.equal(cleared.root, "~/.tool");
+assert.equal(cleared.cache, "~/.tool-cache");
+
+// The alias is trimmed in one place, so validation, duplicate checks, and saving all see the same name.
+assert.equal(rules.normalize({ name: "  Work  ", binary: "/usr/bin/tool" }).name, "Work");
+assert.equal(rules.normalize({ binary: "/usr/bin/tool" }).name, "");

@@ -3,8 +3,12 @@ const assert = require("node:assert/strict");
 const source = require("../../../Helpers/LoadSource.cjs");
 const integrity = source("Helpers/SettingsIntegrity.js");
 
+// Folder settings are entries with their own identifier and source type. Plain path strings from the old format are damaged.
+const folderId = "7b65f5c6-7284-47cf-9ce2-9a4a71a16571";
 assert.equal(integrity.damaged("folders", ["/tmp/one", "/tmp/one/sub"]), true);
-assert.equal(integrity.damaged("folders", ["/tmp/one", "/tmp/two"]), false);
+assert.equal(integrity.damaged("folders", ["/tmp/one", "/tmp/two"]), true);
+assert.equal(integrity.damaged("folders", [{ id: folderId, type: "localgit", folder: "/tmp/one" }]), false);
+assert.equal(integrity.damaged("folders", [{ id: folderId, type: "localgit", folder: "/tmp/one" }, { id: folderId, type: "localgit", folder: "/tmp/two" }]), true);
 assert.equal(integrity.damaged("folders", "invalid"), true);
 assert.equal(integrity.damaged("providers", [{ id: "one" }, null]), true);
 assert.equal(integrity.damaged("providers", [{ id: "one" }]), false);

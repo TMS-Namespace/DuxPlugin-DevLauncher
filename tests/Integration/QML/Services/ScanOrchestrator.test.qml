@@ -1,8 +1,9 @@
-// ScanOrchestrator.test.qml - Exercise delayed scanning, refresh, and warning delivery.
+// ScanOrchestrator.test.qml - Exercise on-demand scanning, refresh, and warning delivery.
 import QtQuick
 import Quickshell
 import qs.Common as HostCommon
 import qs.Services as DuxServices
+import "../../../../src/QML/Services" as Services
 
 Item {
     id: checks
@@ -23,7 +24,7 @@ Item {
 
     Connections {
         function onGlobalVarChanged(pluginId, name) {
-            if (name !== "scannedAt") return;
+            if (name !== "scannedAt" || !root.globals.scannedAt) return;
             if (root.notificationPhase > 0) {
                 const completedPhase = root.notificationPhase;
                 Qt.callLater(function() {
@@ -49,6 +50,11 @@ Item {
                 return;
             }
             if (root.finished) return;
+            if (Services.RecentItemsCache.sortCount !== 1 || Services.RecentItemsCache.ordered.some(function(entry) { return entry.statAt === 0; })) {
+                console.warn("T:FAIL discovery published before its date checks, or sorted more than once");
+                Qt.quit();
+                return;
+            }
 
             if (!settingsPage.controller.setResultsLimit("25") || launcher.getItems("").length !== 3 || root.settings.resultsLimit !== 25 || settingsPage.controller.setResultsLimit("30") || !settingsPage.controller.setResultsLimit("100") || root.pluginDataChanges !== 0 || !settingsPage.globalSettingsGroup.expanded) {
                 console.warn("T:FAIL global result limit setting");
@@ -73,18 +79,18 @@ Item {
                 return;
             }
             const items = launcher.getItems("sample");
+            const primaryItem = items.find(function(item) { return item.name === "sample"; });
             const fileItems = launcher.getItems("example");
             const secondItems = launcher.getItems("second-sample");
             const fileActions = launcher.getContextMenuActions(fileItems[0]);
             root.finished = true;
-            const recentRecords = root.globals.records || [];
-            if (items.length !== 2 || secondItems.length !== 1 || fileItems.length !== 1 || items[0].name !== "sample" || items[0].provider !== root.settings.providers[0].id || !recentRecords.some(function(record) { return record.provider === root.settings.providers[0].id && record.path.endsWith("/sample"); }) || !fileActions.some(function(choice) { return choice.text === "Open with VS Code"; }) || !fileActions.some(function(choice) { return choice.text === "Open with system default"; }) || !fileActions.some(function(choice) { return choice.text === "Open containing folder"; }) || !fileActions.some(function(choice) { return choice.text === "Details"; }) || settingsPage.saveValue("trigger", "`") !== true) {
-                console.warn("T:FAIL unexpected launcher items " + items.length);
+            if (items.length !== 2 || secondItems.length !== 1 || fileItems.length !== 1 || !primaryItem || primaryItem.provider !== root.settings.providers[0].id || !Services.RecentItemsCache.ordered.some(function(entry) { return entry.path.endsWith("/sample") && entry.sources.some(function(source) { return source.id === root.settings.providers[0].id; }); }) || !fileActions.some(function(choice) { return choice.text === "Open with VS Code"; }) || !fileActions.some(function(choice) { return choice.text === "Open with system default"; }) || !fileActions.some(function(choice) { return choice.text === "Open containing folder"; }) || !fileActions.some(function(choice) { return choice.text === "Details"; }) || settingsPage.saveValue("trigger", "`") !== true) {
+                console.warn("T:FAIL unexpected launcher items " + JSON.stringify({ items: items, secondCount: secondItems.length, fileCount: fileItems.length, sources: Services.RecentItemsCache.ordered.map(function(entry) { return { path: entry.path, sources: entry.sources }; }), actions: fileActions.map(function(action) { return action.text; }) }));
                 Qt.quit();
                 return ;
             }
             fileActions.find(function(choice) { return choice.text === "Open containing folder"; }).action();
-            launcher.executeItem(items[0]);
+            launcher.executeItem(primaryItem);
             root.launcherChecks.startLaunchCheck();
         }
 
@@ -103,6 +109,13 @@ Item {
             }
             root.notificationPhase = 1;
             root.settingsPage.controller.addFolder(Quickshell.env("DEV_LAUNCHER_FIXTURE") + "/blocked-root");
+            if (root.orchestrator.scanRunning) {
+                console.warn("T:FAIL saving a folder started discovery without a search");
+                Qt.quit();
+                return;
+            }
+            root.launcher.lastRequest = 0;
+            root.launcher.getItems("new scan folder");
         }
     }
 

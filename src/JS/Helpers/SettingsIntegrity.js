@@ -11,7 +11,7 @@ function damaged(key, value) {
     if (value === undefined) return false;
     if (key === "folders" || key === "providers") {
         if (!Array.isArray(value)) return true;
-        const normalized = key === "folders" ? ConfigurationRules.folders(value) : ConfigurationRules.providers(value);
+        const normalized = key === "folders" ? ConfigurationRules.folderEntries(value) : ConfigurationRules.providers(value);
         return JSON.stringify(value) !== JSON.stringify(normalized);
     }
     if (key === "ageFilter") {
@@ -29,7 +29,7 @@ function damaged(key, value) {
         return Object.keys(value).some(function(path) {
             const entry = value[path];
             return !path.startsWith("/") || !entry || typeof entry !== "object" || Array.isArray(entry)
-                || !Number.isInteger(entry.count) || entry.count < 0 || !Number.isFinite(entry.recent) || entry.recent < 0;
+                || !Number.isInteger(entry.count) || entry.count < 0 || !Number.isFinite(entry.recent) || entry.recent < 0 || (entry.ide !== undefined && typeof entry.ide !== "string");
         });
     }
     return false;

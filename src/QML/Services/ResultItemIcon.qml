@@ -90,7 +90,8 @@ QtObject {
         const path = item.path;
         const kind = item.kind;
         const source = item.sourceProvider ? ProvidersManager.handlerFor(item.sourceProvider) : null;
-        const executable = source ? source.executable() : "";
+        // Only a launchable source badges its item with its executable; a folder source has none to show.
+        const executable = source && source.launchable ? source.executable() : "";
         const iconName = FileMetadataService.iconNameFor(path, kind);
         const appearance = kind !== "file" && Host.appearance ? Host.appearance.lookup(path) : null;
         const chosenName = appearance && appearance.icon ? appearance.icon : iconName;

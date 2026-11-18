@@ -1,74 +1,55 @@
-// LauncherRules.test.js - Check deduplication, searching, ranking, and display limits.
+// LauncherRules.test.js - Check that the launcher filters ordered entries, applies the age cutoff and limit, and presents them.
 const assert = require("node:assert/strict");
 const source = require("../../../Helpers/LoadSource.cjs");
-const { codeId, codiumId, api, properties, records, configured } = require("../../../Helpers/ProviderFixture.cjs");
+const { codeId, codiumId, configured } = require("../../../Helpers/ProviderFixture.cjs");
 const rules = source("Helpers/LauncherRules.js");
-assert.equal(configured.length, 2);
-assert.deepEqual(Array.from(configured[0].extraArguments), ["--reuse-window"]);
-const merged = rules.merge(records.concat([{ path: "/tmp/project", kind: "repository", provider: "", recent: 0 }]), {});
-assert.equal(merged.length, 2);
-assert.equal(merged.find(record => record.path === "/tmp/project").kind, "repository");
-assert.deepEqual(Array.from(merged.find(record => record.path === "/tmp/project").sources), ["Code", "Git repository scan"]);
-const entries = rules.items(merged, "project @VSCodium", 10, configured, codeId);
-assert.equal(entries.length, 1);
-assert.equal(entries[0].provider, codiumId);
-assert.equal(entries[0].sourceProvider, codeId);
-assert.equal(source("Helpers/ConfigurationRules.js").defaultProvider(codeId, configured), codeId);
-assert.equal(source("Helpers/ConfigurationRules.js").defaultProvider("Code", configured), "");
-assert.equal(rules.items(merged, "project", 10, configured.map(provider => ({ ...provider, name: provider.name + " Renamed" })), codeId)[0].provider, codeId);
-assert.equal(entries[0].openedAt, 100);
-assert.equal(entries[0].comment.includes("Open with"), false);
-assert.equal(entries[0].comment, "/tmp/project");
-assert.equal(rules.items(merged, "@Unknown", 10, configured, codeId).length, 0);
-assert.equal(rules.items(merged, "project", 10, [], "")[0].provider, "");
-assert.equal(rules.items(merged, "project @VSCode", 10, [{ id: codeId, name: "VS Code" }], "")[0].provider, codeId);
-assert.equal(rules.items([{ path: "/tmp/solo", kind: "repository", provider: "", recent: 0 }], "solo", 10, [{ name: "VS Code" }], "")[0].provider, "");
-const nestedItem = [{ path: "/tmp/project-folder/report.txt", kind: "file", provider: "", recent: 1 }];
-assert.equal(rules.items(nestedItem, "project-folder", 10, [], "").length, 0);
-assert.equal(rules.items(nestedItem, "project-folder", 10, [], "", null, true).length, 1);
-assert.equal(rules.items(nestedItem, "report", 10, [], "").length, 1);
-assert.equal(rules.items(nestedItem, "project report", 10, [], "", null, true).length, 0);
-assert.equal(rules.recordLaunch({}, "/tmp/project", 200, 10)["/tmp/project"].count, 1);
-const ranked = rules.merge([
-    { path: "/tmp/older", kind: "folder", provider: "Code", recent: 10 },
-    { path: "/tmp/newer", kind: "folder", provider: "Code", recent: 20 },
-    { path: "/tmp/tied", kind: "folder", provider: "Code", recent: 20 }
-], { "/tmp/tied": { count: 3, recent: 20 }, "/tmp/older": { count: 100, recent: 10 } });
-assert.deepEqual(Array.from(ranked, record => record.path), ["/tmp/tied", "/tmp/newer", "/tmp/older"]);
-const eligiblePage = rules.items(ranked, "", 1, configured, codeId, function(record) { return record.path !== "/tmp/tied"; });
-assert.deepEqual(Array.from(eligiblePage, item => item.path), ["/tmp/newer"]);
-const displayedOrder = rules.rank(rules.merge([
-    { path: "/tmp/database-first", kind: "file", provider: codeId, recent: 1000, openedAt: 1000 },
-    { path: "/tmp/actually-newer", kind: "file", provider: codeId, recent: 900, openedAt: 900 }
-], {}).map(function(record) { return Object.assign({}, record, { modifiedAt: record.path.endsWith("database-first") ? 100 : 800 }); }), 1200);
-assert.deepEqual(Array.from(displayedOrder, record => record.path), ["/tmp/actually-newer", "/tmp/database-first"]);
-assert.deepEqual(Array.from(rules.items(displayedOrder, "", 10, configured, ""), item => item.recent), [800, 100]);
-const launchedOrder = rules.rank(rules.merge([
-    { path: "/tmp/history", kind: "file", recent: 500, openedAt: 500 },
-    { path: "/tmp/launched", kind: "file", recent: 100, openedAt: 100 }
-], { "/tmp/launched": { count: 1, recent: 700 } }).map(function(record) { return Object.assign({}, record, { modifiedAt: 50 }); }), 1200);
-assert.equal(launchedOrder[0].path, "/tmp/launched");
-const tiedOrder = rules.rank([{ path: "/tmp/low-count", recent: 10, openedAt: 10, modifiedAt: 10, count: 1 }, { path: "/tmp/high-count", recent: 10, openedAt: 10, modifiedAt: 10, count: 3 }], 1200);
-assert.equal(tiedOrder[0].path, "/tmp/high-count");
-const overlappingHistory = rules.merge([
-    { path: "/tmp/shared.js", kind: "file", provider: codeId, providerName: "Code", recent: 10, openedAt: 10 },
-    { path: "/tmp/shared.js", kind: "file", provider: codiumId, providerName: "VSCodium", recent: 20, openedAt: 20 }
-], {});
-assert.equal(overlappingHistory[0].openedAt, 20);
-assert.equal(overlappingHistory[0].provider, codiumId);
-const pluginLimits = source("Helpers/Config.js");
-const resultRules = source("Helpers/ResultRules.js");
-const historyEntries = Array.from({ length: 77 }, function(value, index) {
-    return { folderUri: "file:///tmp/folder-" + index };
-}).concat(Array.from({ length: 48 }, function(value, index) {
-    return { fileUri: "file:///tmp/file-" + index + ".js" };
-}));
-const historyShape = api.parseHistory({ history: { entries: historyEntries }, modifiedAt: 1000 }, properties);
-const allHistory = rules.merge(historyShape, {});
-const visibleHistory = rules.items(allHistory, "", resultRules.limit(undefined), configured, "Code");
-assert.equal(visibleHistory.length, pluginLimits.defaultResultsLimit);
-assert.equal(visibleHistory.filter(item => item.kind === "file").length, 23);
-const lateFile = rules.items(allHistory, "file-47", resultRules.limit(undefined), configured, "Code");
-assert.equal(lateFile.length, 1);
-assert.equal(lateFile[0].path, "/tmp/file-47.js");
-assert.equal(rules.items(allHistory, "file", 25, configured, "Code").length, 25);
+const day = 86400000;
+const now = Date.UTC(2026, 10, 17, 12);
+
+// A cache entry as the cache builds it: a date, a count, and the sources that reported it.
+function entry(path, date, count, sources, lastIde) {
+    return { path: path, name: path.split("/").pop(), kind: "file", date: date, count: count || 0, sources: sources || [], lastIde: lastIde || "", modifiedAt: 0, statAt: 0, datedAt: now, launchedAt: 0, scannedAt: now };
+}
+// Each entry's date is the date its sources give, as the cache computes it, so the subtitle and the order agree.
+const codeSource = { id: codeId, name: "Code", openedAt: now };
+const codiumSource = { id: codiumId, name: "VSCodium", openedAt: now - 2 * day };
+const entries = [
+    entry("/tmp/project-folder/report.txt", now, 0, [codeSource]),
+    entry("/tmp/project/notes.md", now - day, 2, [codiumSource], codiumId),
+    entry("/tmp/old/archive.zip", now - 400 * day, 9, [{ id: codeId, name: "Code", openedAt: now - 400 * day }])
+];
+
+// The entries come in as ordered; the launcher keeps that order and presents them with their chosen IDE and age.
+const found = rules.items(entries, "", { limit: 10, providers: configured, defaultProvider: codeId, cutoff: now - 3 * 30 * day, searchPaths: false, now: now });
+assert.deepEqual(Array.from(found, item => item.path), ["/tmp/project-folder/report.txt", "/tmp/project/notes.md"]);
+assert.equal(found[0].provider, codeId);
+assert.equal(found[1].provider, codiumId, "the IDE that launched the item last opens it");
+assert.equal(found[1].sourceProvider, codiumId);
+assert.deepEqual(Array.from(found[1].sources), ["VSCodium"]);
+assert.equal(found[0].comment, "/tmp/project-folder/report.txt");
+assert.equal(found[0].ageLabel, "just now");
+
+// A search matches the name, or the whole path when path search is on.
+assert.equal(rules.items(entries, "report", { limit: 10, providers: configured, defaultProvider: codeId, cutoff: 0, searchPaths: false, now: now }).length, 1);
+assert.equal(rules.items(entries, "project-folder", { limit: 10, providers: configured, defaultProvider: codeId, cutoff: 0, searchPaths: false, now: now }).length, 0);
+assert.equal(rules.items(entries, "project-folder", { limit: 10, providers: configured, defaultProvider: codeId, cutoff: 0, searchPaths: true, now: now }).length, 1);
+
+// An @IDE override selects that IDE, and an unknown override shows nothing.
+assert.equal(rules.items(entries, "notes @Code", { limit: 10, providers: configured, defaultProvider: codiumId, cutoff: 0, searchPaths: false, now: now })[0].provider, codeId);
+assert.equal(rules.items(entries, "@Unknown", { limit: 10, providers: configured, defaultProvider: codeId, cutoff: 0, searchPaths: false, now: now }).length, 0);
+
+// Items older than the cutoff are hidden, and the limit keeps only the first matches in order.
+assert.equal(rules.items(entries, "archive", { limit: 10, providers: configured, defaultProvider: codeId, cutoff: now - 3 * 30 * day, searchPaths: false, now: now }).length, 0);
+assert.deepEqual(Array.from(rules.items(entries, "", { limit: 1, providers: configured, defaultProvider: codeId, cutoff: 0, searchPaths: false, now: now }), item => item.path), ["/tmp/project-folder/report.txt"]);
+
+// With no launchable IDE, the default is the system opener, and the launch is recorded with the IDE that opened it.
+assert.equal(rules.items(entries, "notes", { limit: 10, providers: [], defaultProvider: "", cutoff: 0, searchPaths: false, now: now })[0].provider, "");
+const usage = rules.recordLaunch({}, "/tmp/project", codeId, now, 10);
+assert.equal(usage["/tmp/project"].count, 1);
+assert.equal(usage["/tmp/project"].ide, codeId);
+
+// Cached ranking and filtering must use the same date as the subtitle, even before a source-date refresh is due.
+const changedSource = entry("/tmp/changed", now - day, 0, [{ id: codeId, name: "Code", openedAt: now - 5 * day }]);
+const unchangedSource = entry("/tmp/unchanged", now - 2 * day, 0, [{ id: codeId, name: "Code", openedAt: now - 2 * day }]);
+const stableDates = rules.items([changedSource, unchangedSource], "", { limit: 10, providers: configured, defaultProvider: codeId, cutoff: 0, searchPaths: false, now: now });
+assert.deepEqual(Array.from(stableDates, item => item.ageLabel), ["1d ago", "2d ago"]);

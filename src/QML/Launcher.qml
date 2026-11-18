@@ -1,4 +1,4 @@
-// Launcher.qml - Return deduplicated local paths and launch them in a configured IDE.
+// Launcher.qml - Search the ordered recent-items cache and launch the chosen item in the IDE that should open it.
 import "../JS/Helpers/Config.js" as Config
 import "../JS/Helpers/LauncherRules.js" as Rules
 import "../JS/Helpers/ConfigurationRules.js" as ConfigurationRules
@@ -17,50 +17,44 @@ Item {
     property var pluginService: null
     property string trigger: Config.trigger
     property double lastRequest: 0
+    // Dux also calls getItems for redraws. An unchanged query must only read the cache.
+    property var lastQuery: null
     readonly property alias detailsPanel: detailsModal
 
     signal itemsChanged()
 
-    // Return only configured IDEs whose provider facades loaded successfully.
+    // Return only configured IDEs whose provider facades loaded and that can open items.
     function availableProviders() {
         return ConfigurationRules.providers(DataStorage.load("providers", ProvidersManager.defaultConfigurations())).filter(function(provider) {
-            return ProvidersManager.handlerFor(provider.id) !== null;
+            return ProvidersManager.handlerFor(provider.id) !== null && ProvidersManager.descriptorFor(provider.type).launchable === true;
         });
     }
 
-    // Read the orchestrator's snapshot and request a fresh one when it is old.
+    // Read the ordered cache, filter it for the query, and present the results. Nothing is sorted or merged here.
     function getItems(query) {
         if (!pluginService)
             return [];
 
+        RecentItemsCache.start();
+        const queryChanged = query !== lastQuery;
+        // A search starts with an empty query (the launcher opening) or with the first character typed after it.
+        // Only those moments check the scan age, so typing further characters never requests another scan.
+        const searchStarts = !query || !lastQuery;
+        lastQuery = query;
+        const now = Date.now();
         const scannedAt = pluginService.getGlobalVar(Config.pluginId, "scannedAt", 0);
-        if (Date.now() - scannedAt > Config.refreshMilliseconds && Date.now() - lastRequest > Config.refreshMilliseconds) {
-            lastRequest = Date.now();
+        if (searchStarts && now - scannedAt > Config.refreshMilliseconds && now - lastRequest > Config.refreshMilliseconds) {
+            lastRequest = now;
             pluginService.setGlobalVar(Config.pluginId, "refreshRequest", lastRequest);
         }
-        const records = pluginService.getGlobalVar(Config.pluginId, "records", []);
-        const usage = DataStorage.load("usage", {
-        });
         const providers = availableProviders();
         const defaultProvider = ConfigurationRules.defaultProvider(DataStorage.load("defaultProvider", ProvidersManager.defaultProviderId()), providers);
         const resultsLimit = ResultRules.limit(DataStorage.load("resultsLimit", Config.defaultResultsLimit));
         const searchPaths = DataStorage.load("searchPaths", Config.searchPaths) === true;
-        const availableRecords = Rules.merge(records, usage).filter(function(record) { return FileMetadataService.available(record.path); });
-        const now = Date.now();
-        const rankedRecords = Rules.rank(availableRecords.map(function(record) {
-            const status = FileMetadataService.statusFor(record.path);
-            return Object.assign({}, record, { modifiedAt: status ? status.modifiedAt : 0 });
-        }), now);
-        const ageFilter = AgeFilterRules.normalize(DataStorage.load("ageFilter", Config.defaultAgeFilter));
-        const cutoff = AgeFilterRules.cutoff(ageFilter, now);
-        const needsMetadata = [];
-        const items = Rules.items(rankedRecords, query, resultsLimit, providers, defaultProvider, function(record) {
-            if (AgeFilterRules.olderThan(record.effectiveRecent, cutoff)) return false;
-            if (!FileMetadataService.statusFor(record.path)) needsMetadata.push(record);
-            return true;
-        }, searchPaths);
-        FileMetadataService.request(needsMetadata);
-        return items.map(function(item) {
+        const cutoff = AgeFilterRules.cutoff(AgeFilterRules.normalize(DataStorage.load("ageFilter", Config.defaultAgeFilter)), now);
+        const found = Rules.items(RecentItemsCache.ordered, query, { limit: resultsLimit, providers: providers, defaultProvider: defaultProvider, cutoff: cutoff, searchPaths: searchPaths, now: now });
+        FileMetadataService.request(found, queryChanged);
+        return found.map(function(item) {
             const description = item.comment + (item.ageLabel ? " · " + item.ageLabel : "");
             return Object.assign({}, item, { comment: description }, ResultItemIcon.iconFor(item));
         });
@@ -99,7 +93,7 @@ Item {
         });
     }
 
-    // Launch with separate arguments and record the request for ranking.
+    // Launch with separate arguments, then record the launch and the IDE that performed it.
     function executeItem(item) {
         if (!item || !item.path || !item.path.startsWith("/"))
             return ;
@@ -107,7 +101,7 @@ Item {
         const handler = item.provider ? ProvidersManager.handlerFor(item.provider) : SystemOpener;
         if (!handler) {
             // The IDE's facade was released by a reload, so the user must be told the launch did not happen.
-            ErrorHandler.report("launch", "The selected IDE is not available. Check its settings in Dev Launcher and try again.");
+            ErrorHandler.reportAlways("launch", "The selected IDE is not available. Check its settings in Dev Launcher and try again.");
             return;
         }
 
@@ -115,16 +109,12 @@ Item {
             handler.launch(item.path);
         } catch (caughtError) {
             // The toast shows only the friendly message; the raw exception goes to the log.
-            ErrorHandler.report("launch", caughtError.userMessage || "Could not open this item in the selected IDE.", caughtError.details || String(caughtError));
+            ErrorHandler.reportAlways("launch", caughtError.userMessage || "Could not open this item in the selected IDE.", caughtError.details || String(caughtError));
             return;
         }
-        const usage = Rules.recordLaunch(DataStorage.load("usage", {
-        }), item.path, Date.now(), Config.maxUsageEntries);
-        if (DataStorage.save("usage", usage) !== true)
-            ErrorHandler.report("launch", "Could not save launch history.");
+        RecentItemsCache.recordLaunch(item.path, item.provider, Date.now());
 
         itemsChanged();
-        SettingsData.launcherPluginVisibilityChanged();
     }
 
     onPluginServiceChanged: {
@@ -151,8 +141,15 @@ Item {
         function onGlobalVarChanged(changedPluginId, name) {
             if (changedPluginId !== Config.pluginId || name !== "settingsRevision") return;
             root.trigger = DataStorage.load("trigger", Config.trigger);
+            root.lastQuery = null;
             SettingsData.launcherPluginVisibilityChanged();
         }
+    }
+
+    // The scan published new items: an open launcher searches again.
+    Connections {
+        target: RecentItemsCache
+        function onChanged() { SettingsData.launcherPluginVisibilityChanged(); }
     }
 
     Connections {

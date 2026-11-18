@@ -4,7 +4,8 @@ import QtQml
 QtObject {
 
     enum Type {
-        VSCode
+        VSCode,
+        LocalGit
     }
 
 }

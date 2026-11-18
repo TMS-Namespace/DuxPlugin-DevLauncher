@@ -1,16 +1,19 @@
-// FolderSettings.test.qml - Check that each folder row shows its own latest scan error.
+// FolderSettings.test.qml - Check that each folder row shows the scan error of its own folder source.
 import QtQuick
 
 QtObject {
     required property var fixture
 
-    // A failing folder shows its error on its own row; a folder with no error shows nothing.
+    // A failing folder shows its error on its own row, matched by the folder's identifier; a folder with no error shows nothing.
     function checkFolderRowShowsScanError() {
         const folderPath = fixture.fixtureRoot + "/sample";
         const otherPath = fixture.fixtureRoot + "/other-root";
-        const message = "Repository folder " + folderPath + " was not scanned because the limit of 500 repositories was already reached.";
-        fixture.settings.folders = [folderPath, otherPath];
-        fixture.testPluginService.setGlobalVar("devLauncher", "folderErrors", [{ path: folderPath, message: message }]);
+        const message = "Repository folder " + folderPath + " has more than 500 repositories; only the first 500 are listed.";
+        fixture.settings.folders = [
+            { id: fixture.secondIdentifier, type: "localgit", folder: folderPath },
+            { id: fixture.thirdIdentifier, type: "localgit", folder: otherPath }
+        ];
+        fixture.testPluginService.setGlobalVar("devLauncher", "providerErrors", [{ providerId: fixture.secondIdentifier, message: message }]);
         const controller = fixture.controllerComponent.createObject(null, { pluginService: fixture.testPluginService });
         controller.load();
         const viewComponent = Qt.createComponent("file://" + fixture.pluginRoot + "/src/QML/Views/FolderSettings.qml");
@@ -21,7 +24,7 @@ QtObject {
         const secondRowText = view.folderRows.itemAt(1).scanErrorText;
         view.destroy();
         controller.destroy();
-        fixture.testPluginService.setGlobalVar("devLauncher", "folderErrors", []);
+        fixture.testPluginService.setGlobalVar("devLauncher", "providerErrors", []);
         return fixture.expect(firstRowText === message && secondRowText === "", "folder rows show the wrong errors: [" + firstRowText + "] [" + secondRowText + "]");
     }
 }

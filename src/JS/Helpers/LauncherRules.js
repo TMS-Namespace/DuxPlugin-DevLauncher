@@ -1,79 +1,43 @@
-// LauncherRules.js - Rank unique launcher entries and select the launch provider.
+// LauncherRules.js - Filter the ordered cache for one query and present each entry as a launcher item.
 .pragma library
-.import "PathRules.js" as PathRules
 .import "AgeFilterRules.js" as AgeFilterRules
 .import "Config.js" as Config
+.import "OpenWithRules.js" as OpenWithRules
+.import "RecentCacheRules.js" as RecentCacheRules
 
-// Merge path duplicates and apply saved launch activity.
-function merge(records, usage) {
-    const unique = {};
-    const sourcesByPath = {};
-    for (const record of records || []) {
-        const path = PathRules.localPath(record.path);
-        if (!path) continue;
-        const source = record.kind === "repository" ? "Git repository scan" : String(record.providerName || "");
-        if (!sourcesByPath[path]) sourcesByPath[path] = [];
-        if (source && !sourcesByPath[path].includes(source)) sourcesByPath[path].push(source);
-        const existing = unique[path];
-        if (!existing || record.recent > existing.recent)
-            unique[path] = Object.assign({}, record, { path: path });
-        if (existing && (existing.kind === "repository" || record.kind === "repository"))
-            unique[path].kind = "repository";
-    }
-    return Object.keys(unique).map(function(path) {
-        const record = unique[path];
-        const activity = usage && usage[path] || {};
-        record.sources = sourcesByPath[path];
-        record.recent = Math.max(Number(record.recent) || 0, Number(activity.recent) || 0);
-        record.launchedAt = Number(activity.recent) || 0;
-        record.count = Number(activity.count) || 0;
-        return record;
-    }).sort(function(left, right) {
-        return right.recent - left.recent || right.count - left.count || left.path.localeCompare(right.path);
-    });
-}
-
-// Rank by the same effective use date shown in the result subtitle.
-function rank(records, now) {
-    return (records || []).map(function(record) {
-        const age = AgeFilterRules.itemAge(record, now);
-        return Object.assign({}, record, { effectiveRecent: age.date, ageLabel: age.label });
-    }).sort(function(left, right) {
-        return right.effectiveRecent - left.effectiveRecent || right.count - left.count
-            || right.recent - left.recent || left.path.localeCompare(right.path);
-    });
-}
-
-// Filter by typed terms and select the source IDE or an explicit @IDE override.
-function items(records, query, limit, providers, defaultProvider, eligible, searchPaths) {
+// Keep only the entries that match the typed terms and the age cutoff, stop at the limit, and present each one.
+// The entries arrive already ordered by date, so the first matches are the newest ones; nothing is sorted here.
+function items(entries, query, options) {
     const words = String(query || "").trim().split(/\s+/).filter(Boolean);
     const override = words.find(function(word) { return word.startsWith("@"); });
-    const selectedOverride = override ? providers.find(function(provider) { return provider.name.toLowerCase().replace(/[^a-z0-9]/g, "") === override.slice(1).toLowerCase().replace(/[^a-z0-9]/g, ""); }) : null;
+    const selectedOverride = override ? options.providers.find(function(provider) { return provider.name.toLowerCase().replace(/[^a-z0-9]/g, "") === override.slice(1).toLowerCase().replace(/[^a-z0-9]/g, ""); }) : null;
     if (override && !selectedOverride) return [];
     const phrase = words.filter(function(word) { return word !== override; }).join(" ").toLowerCase();
-    const matches = (records || []).filter(function(record) {
-        const name = String(record.path).split("/").pop();
-        const haystack = searchPaths ? String(record.path).toLowerCase() : name.toLowerCase();
-        return haystack.includes(phrase);
-    });
+    const openableIds = options.providers.map(function(provider) { return provider.id; });
     const visible = [];
-    for (const record of matches) {
-        if (eligible && !eligible(record)) continue;
-        visible.push(record);
-        if (visible.length >= limit) break;
+    for (const entry of entries) {
+        const haystack = options.searchPaths ? entry.path.toLowerCase() : entry.name.toLowerCase();
+        if (!haystack.includes(phrase)) continue;
+        if (AgeFilterRules.olderThan(entry.date, options.cutoff)) continue;
+        visible.push(entry);
+        if (visible.length >= options.limit) break;
     }
-    return visible.map(function(record, index) {
-        const selected = selectedOverride || providers.find(function(provider) { return provider.id === record.provider; }) || providers.find(function(provider) { return provider.id === defaultProvider; }) || null;
-        const providerId = selected ? selected.id : "";
-        return { id: record.path, name: record.path.split("/").pop() || record.path, kind: record.kind, comment: record.path, action: "open:" + record.path, path: record.path, provider: providerId, sourceProvider: record.provider || "", sources: record.sources || [], recent: record.effectiveRecent !== undefined ? record.effectiveRecent : record.recent, ageLabel: record.ageLabel || "", openedAt: record.openedAt || 0, count: record.count, categories: ["Dev Launcher"], _preScored: Config.launcherInitialScore - index };
-    }).filter(Boolean);
+    return visible.map(function(entry, index) {
+        const chosenId = selectedOverride ? selectedOverride.id : OpenWithRules.choose(entry, openableIds, options.defaultProvider);
+        const reporting = entry.sources.find(function(source) { return openableIds.includes(source.id); });
+        const age = AgeFilterRules.itemAge({ modifiedAt: entry.date }, options.now);
+        return { id: entry.path, name: entry.name, kind: entry.kind, comment: entry.path, action: "open:" + entry.path, path: entry.path,
+            provider: chosenId, sourceProvider: reporting ? reporting.id : "", sources: entry.sources.map(function(source) { return source.name; }),
+            recent: entry.date, ageLabel: age.label, openedAt: RecentCacheRules.latestSourceDate(entry), count: entry.count,
+            categories: ["Dev Launcher"], _preScored: Config.launcherInitialScore - index };
+    });
 }
 
-// Keep a bounded usage map with UTC launch timestamps.
-function recordLaunch(usage, path, now, limit) {
+// Keep a bounded usage map of launch counts, the last launch time, and the IDE that launched the item.
+function recordLaunch(usage, path, ideId, now, limit) {
     const updated = Object.assign({}, usage || {});
     const previous = updated[path] || {};
-    updated[path] = { count: (Number(previous.count) || 0) + 1, recent: now };
+    updated[path] = { count: (Number(previous.count) || 0) + 1, recent: now, ide: String(ideId || "") };
     const paths = Object.keys(updated).sort(function(left, right) { return updated[right].recent - updated[left].recent; });
     for (const oldPath of paths.slice(limit)) delete updated[oldPath];
     return updated;

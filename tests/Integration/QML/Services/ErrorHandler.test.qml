@@ -21,4 +21,16 @@ QtObject {
             "details were not written to the log: " + logged.join(" | "))
             && fixture.expect(toast.includes("Friendly message.") && !toast.includes("raw /internal/detail"), "details reached the toast: " + toast);
     }
+
+    // A failure of the user's own action, such as a launch, is shown every time, even inside the throttle window.
+    function checkLaunchErrorsAlwaysShown() {
+        const toastsBefore = HostServices.ToastService.messages.length;
+        Services.ErrorHandler.lastNotificationAt = Date.now();
+        Services.ErrorHandler.reportAlways("launch", "First launch failed.");
+        Services.ErrorHandler.reportAlways("launch", "Second launch failed.");
+        const shown = HostServices.ToastService.messages.length - toastsBefore;
+        Services.ErrorHandler.lastNotificationAt = 0;
+        return fixture.expect(shown === 2, "launch failures were throttled: " + shown + " shown");
+    }
+
 }

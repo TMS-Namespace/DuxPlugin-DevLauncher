@@ -31,8 +31,8 @@ Column {
     DDropdown {
         id: providerDropdown
         text: "IDE type"
-        options: ProvidersManager.sources.map(function(provider) { return provider.name; })
-        optionValues: ProvidersManager.sources.map(function(provider) { return provider.id; })
+        options: ProvidersManager.sources.filter(function(provider) { return provider.launchable; }).map(function(provider) { return provider.name; })
+        optionValues: ProvidersManager.sources.filter(function(provider) { return provider.launchable; }).map(function(provider) { return provider.id; })
         currentValue: root.controller.draft.type || ""
         width: parent.width
         onValueChanged: function(value) { root.controller.commitField("type", value); }

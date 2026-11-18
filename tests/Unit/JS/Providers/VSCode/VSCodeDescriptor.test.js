@@ -17,3 +17,5 @@ assert.equal(field("executable").comparison, "basename");
 // The rules that used to be built into the editor are now declared here.
 assert.deepEqual(Array.from(descriptor.dependents.executable), ["config", "shared"]);
 assert.deepEqual(Array.from(descriptor.dependents.config), ["shared"]);
+// The IDE declaration says it can open items.
+assert.equal(descriptor.launchable, true);

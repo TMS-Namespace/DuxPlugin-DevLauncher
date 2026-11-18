@@ -9,7 +9,7 @@ function commandProgram(command) {
 
 // Prefer an exact path; a matching executable name also covers common CLI symlinks.
 function iconName(executable, entries) {
-    const configured = String(executable || "").trim();
+    const configured = String(executable || "");
     if (!configured) return "";
     const basename = configured.split("/").pop();
     let sameName = "";

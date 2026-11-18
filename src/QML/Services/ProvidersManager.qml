@@ -3,8 +3,10 @@
 import "../../JS/Contracts/PluginError.js" as PluginError
 import "../../JS/Helpers/ProviderRules.js" as ProviderRules
 import "../../JS/Providers/VSCode/Integration/VSCodeProvider.js" as VSCodeProviderModule
+import "../../JS/Providers/LocalGit/Integration/LocalGitProvider.js" as LocalGitProviderModule
 import "../Contracts"
 import "../Providers/VSCode/Integration"
+import "../Providers/LocalGit/Integration"
 import QtQml
 pragma Singleton
 
@@ -16,7 +18,11 @@ QtObject {
     property var loadErrors: []
     // The one place where each provider is listed. Adding a provider adds one entry point and one line here.
     readonly property VSCodeProvider vsCodeEntry: VSCodeProvider {}
-    readonly property var sources: [describe(VSCodeProviderModule.create(), ProviderType.VSCode, vsCodeEntry.readerType)]
+    readonly property LocalGitProvider localGitEntry: LocalGitProvider {}
+    readonly property var sources: [
+        describe(VSCodeProviderModule.create(), ProviderType.VSCode, vsCodeEntry.readerType),
+        describe(LocalGitProviderModule.create(), ProviderType.LocalGit, localGitEntry.readerType)
+    ]
     property Component handlerType
 
     handlerType: Component {
@@ -47,6 +53,8 @@ QtObject {
             "type": type,
             "id": provider.typeId(),
             "name": provider.name(),
+            "launchable": provider.descriptor().launchable === true,
+            "scansFolders": provider.descriptor().scansFolders === true,
             "descriptor": provider.descriptor(),
             "provider": provider,
             "readerType": readerType
@@ -60,7 +68,7 @@ QtObject {
 
     // Keep installed provider defaults in the provider registry.
     function defaultConfigurations() {
-        return sources.map(function(source) { return source.provider.defaultConfiguration(); });
+        return sources.filter(function(source) { return source.launchable; }).map(function(source) { return source.provider.defaultConfiguration(); });
     }
 
     // Return the declaration the plugin may read for one IDE type. Unknown types get an empty declaration.
@@ -75,9 +83,22 @@ QtObject {
         return source ? source.provider.defaultConfiguration() : {};
     }
 
+    // The identifier of the first default IDE, used when no default is saved yet. Empty when none is available.
     function defaultProviderId() {
         const defaults = defaultConfigurations();
         return defaults.length ? defaults[0].id : "";
+    }
+
+    // The source that turns a saved scan folder into repository records. Empty when no source scans folders.
+    function folderTypeId() {
+        const source = sources.find(function(option) { return option.scansFolders; });
+        return source ? source.id : "";
+    }
+
+    // The first launchable IDE type, used when a user adds a new IDE. Empty when no source can launch.
+    function defaultTypeId() {
+        const source = sources.find(function(option) { return option.launchable; });
+        return source ? source.id : "";
     }
 
     // Check one configuration's declaration against its provider API and return the parts needed to build facades.
@@ -96,7 +117,7 @@ QtObject {
         const parts = declaredFor(configuration);
         const properties = propertiesType.createObject(null);
         for (const key of Object.keys(parts.declared)) properties[key] = parts.declared[key];
-        const handler = handlerType.createObject(null, { "type": parts.source.type, "properties": properties, "api": parts.api, "readerType": parts.source.readerType });
+        const handler = handlerType.createObject(null, { "type": parts.source.type, "properties": properties, "api": parts.api, "readerType": parts.source.readerType, "launchable": parts.source.launchable });
         if (!handler) {
             properties.destroy();
             throw new PluginError.PluginError(PluginError.Code.PROVIDER_CONFIG, "This IDE provider could not be loaded.", configuration.type);

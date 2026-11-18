@@ -29,7 +29,7 @@ Column {
         delegate: Rectangle {
             id: folderDelegate
             required property int index
-            required property string modelData
+            required property var modelData
             width: root.width
             height: folderColumn.implicitHeight + Theme.spacingS * 2
             color: Theme.surfaceContainerHigh
@@ -47,7 +47,7 @@ Column {
                     Layout.fillWidth: true
                     spacing: Theme.spacingS
                     StyledText {
-                        text: folderDelegate.modelData
+                        text: folderDelegate.modelData.folder
                         color: Theme.surfaceText
                         elide: Text.ElideMiddle
                         Layout.fillWidth: true
@@ -61,7 +61,7 @@ Column {
                 StyledText {
                     id: folderScanError
                     visible: text !== ""
-                    text: root.controller.scanErrorFor(folderDelegate.modelData)
+                    text: root.controller.providerErrorFor(folderDelegate.modelData.id)
                     color: Theme.error
                     font.pixelSize: Theme.fontSizeSmall
                     wrapMode: Text.WordWrap

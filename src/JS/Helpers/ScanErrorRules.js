@@ -1,6 +1,5 @@
-// ScanErrorRules.js - Turn repository process failures into useful diagnostics.
+// ScanErrorRules.js - Turn repository scan failures into useful diagnostics, and pick the one a source shows.
 .pragma library
-.import "PathRules.js" as PathRules
 
 // Keep error classification independent of paths and platform-specific wording.
 function repository(exitCode, errorText) {
@@ -14,21 +13,18 @@ function repository(exitCode, errorText) {
     return "Repository scan failed (exit " + exitCode + "). Check that the folder is accessible.";
 }
 
-// Identify the configured root that produced one repository scan error.
+// Identify the configured folder that produced one repository scan error.
 function forFolder(path, exitCode, errorText) {
     return "Repository folder " + path + ": " + repository(exitCode, errorText);
 }
 
-// Explain why a configured root was never scanned because the repository cap was already reached.
-function notScanned(path, repositoryLimit) {
-    return "Repository folder " + path + " was not scanned because the limit of " + repositoryLimit + " repositories was already reached.";
+// Explain that a folder has more repositories than one scan lists, so only the first ones are shown.
+function limitReached(path, repositoryLimit) {
+    return "Repository folder " + path + " has more than " + repositoryLimit + " repositories; only the first " + repositoryLimit + " are listed.";
 }
 
-// Pick the latest scan error for one configured folder, for display in the settings folder list.
-// Folder errors are shown only here, never as a repeated toast: see RepositoryNotificationRules.messages.
-function forConfiguredFolder(folder, failures) {
-    const wanted = PathRules.localPath(folder);
-    if (!wanted) return "";
-    const match = (failures || []).find(function(failure) { return PathRules.localPath(failure.path) === wanted; });
+// Pick the latest error recorded for one source, for display in that source's settings row.
+function forProvider(providerId, failures) {
+    const match = (failures || []).find(function(failure) { return failure.providerId === providerId; });
     return match ? match.message : "";
 }
