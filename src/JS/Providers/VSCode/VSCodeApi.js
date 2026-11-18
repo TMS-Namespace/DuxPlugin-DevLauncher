@@ -1,6 +1,8 @@
 // VSCodeApi.js - Describe VS Code history files, parse local recents, and build launch args.
 .pragma library
+// Rules: Pure history parsing and command building: throws PluginError for bad input and never runs a process; no QML types or logging.
 .import "../../Contracts/ProviderApi.js" as Base
+.import "../../Contracts/InstallationType.js" as InstallationType
 .import "../../Contracts/PluginError.js" as PluginError
 .import "../../Helpers/PathRules.js" as PathRules
 .import "VSCodeConstants.js" as Constants
@@ -12,6 +14,7 @@ function recentRank(modifiedAt, position) {
     return Constants.MAX_PER_LIST - position;
 }
 
+// The VS Code history reader and command builder for native, Flatpak and Snap installations.
 var VSCodeApi = class VSCodeApi extends Base.ProviderApi {
     // Prefer shared storage, then older SQLite and JSON locations.
     sources(properties) {
@@ -55,19 +58,23 @@ var VSCodeApi = class VSCodeApi extends Base.ProviderApi {
     launchArgs(path, properties, home) {
         if (!path || !path.startsWith("/"))
             throw new PluginError.PluginError(PluginError.Code.PROVIDER_CONFIG, "Choose a local file or folder.", path);
-        return [PathRules.expand(properties.executable, home, "")].concat(properties.extraArguments, [path]);
+        const launcherArgs = properties.installationType === InstallationType.Flatpak ? ["run", Constants.FLATPAK_ID] : properties.installationType === InstallationType.Snap ? ["run", Constants.SNAP_NAME] : [];
+        return [PathRules.expand(properties.executable, home, "")].concat(launcherArgs, properties.extraArguments, [path]);
     }
 
-    // Ask the chosen executable for its version without opening a window.
+    // Build the command that checks the configured executable without opening a window: a version call for native installs, a package query for Flatpak and Snap.
     validationArgs(properties, home) {
-        return [PathRules.expand(properties.executable, home, "")].concat(properties.extraArguments, ["--version"]);
+        const executable = PathRules.expand(properties.executable, home, "");
+        if (properties.installationType === InstallationType.Flatpak) return [executable, "info", "--show-ref", Constants.FLATPAK_ID];
+        if (properties.installationType === InstallationType.Snap) return [executable, "list", Constants.SNAP_NAME];
+        return [executable].concat(properties.extraArguments, ["--version"]);
     }
 
     // The data folder is required; shared storage is a usable but optional history source.
     validationPaths(properties, home, configHome) {
         const paths = [{ field: "config", label: "IDE data folder", path: PathRules.expand(properties.settings.configDirectory, home, configHome), kind: "directory", optional: false, unique: true }];
         const shared = properties.settings.sharedStorageDirectory;
-        if (shared) paths.push({ field: "shared", label: "Shared history folder", path: PathRules.expand(shared, home, configHome), kind: "directory", optional: shared === Constants.DEFAULT_SHARED_STORAGE_DIRECTORY, unique: true });
+        if (shared) paths.push({ field: "shared", label: "Shared history folder", path: PathRules.expand(shared, home, configHome), kind: "directory", optional: shared === Constants.DEFAULT_SHARED_STORAGE_DIRECTORY || shared === Constants.FLATPAK_SHARED_DIRECTORY, unique: true });
         for (const source of this.sources(properties))
             paths.push({ field: shared && source.path.startsWith(shared + "/") ? "shared" : "config", label: "IDE history file", path: PathRules.expand(source.path, home, configHome), kind: "file", optional: true, unique: false });
         return paths;
@@ -75,6 +82,16 @@ var VSCodeApi = class VSCodeApi extends Base.ProviderApi {
 
     // A VS Code compatible CLI prints a version; its executable must have a known name.
     validateExecutable(output, properties) {
+        if (properties.installationType === InstallationType.Flatpak) {
+            if (!String(output).trim().startsWith("app/" + Constants.FLATPAK_ID + "/"))
+                throw new PluginError.PluginError(PluginError.Code.PROVIDER_CONFIG, "Choose a working VS Code Flatpak installation.", String(output), "executable");
+            return true;
+        }
+        if (properties.installationType === InstallationType.Snap) {
+            if (!String(output).split("\n").some(function(line) { return line.trim().split(/\s+/)[0] === Constants.SNAP_NAME; }))
+                throw new PluginError.PluginError(PluginError.Code.PROVIDER_CONFIG, "Choose a working VS Code Snap installation.", String(output), "executable");
+            return true;
+        }
         const name = properties.executable.split("/").pop();
         const allowed = ["code", "code-insiders", "code-oss", "codium", "codium-insiders", "cursor"];
         if (allowed.indexOf(name) < 0 || !/^\d+\.\d+(?:\.\d+)?/m.test(String(output || "")))

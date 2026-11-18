@@ -1,5 +1,6 @@
 // VSCodeRecents.test.qml - Check that a history read whose process never answers moves on to the next location, and that
 // the read ends with one failed answer once no location is left.
+// Rules: Runs in the offscreen shell with a history process that never answers; the read must move through each location and finish once.
 import QtQuick
 import "../../../../../src/QML/Providers/VSCode" as Providers
 import "../../../../../src/JS/Providers/VSCode/VSCodeApi.js" as VSCodeApi
@@ -13,7 +14,7 @@ QtObject {
     // The default configuration has two history locations. Abandoning the first moves on to the second; abandoning the
     // second ends the read with one message that is marked as a failure, so the caller keeps its earlier items.
     function checkStuckReadMovesOnThenEnds() {
-        const properties = VSCodeProperties.create({ id: fixture.firstIdentifier, name: "Stuck", config: fixture.fixtureRoot + "/Code", executable: "code", shared: "", extraArguments: [] });
+        const properties = VSCodeProperties.create({ installationType: "native", id: fixture.firstIdentifier, name: "Stuck", config: fixture.fixtureRoot + "/Code", executable: "code", shared: "", extraArguments: [] });
         const results = [];
         const started = reader.read(VSCodeApi.create(), properties, function(records, message, details, succeeded) {
             results.push({ count: records.length, message: message, succeeded: succeeded });
@@ -31,7 +32,7 @@ QtObject {
     function checkClearedHistoryRemovesItems() {
         const id = fixture.secondIdentifier;
         const path = fixture.fixtureRoot + "/cleared-history-item";
-        const properties = VSCodeProperties.create({ id: id, name: "Cleared", config: fixture.fixtureRoot + "/Code", executable: "code", shared: "", extraArguments: [] });
+        const properties = VSCodeProperties.create({ installationType: "native", id: id, name: "Cleared", config: fixture.fixtureRoot + "/Code", executable: "code", shared: "", extraArguments: [] });
         Services.RecentItemsCache.reconcileSource(id, "Cleared", [{ path: path, kind: "file", openedAt: Date.now() }], true, Date.now());
         let answer = null;
         reader.read(VSCodeApi.create(), properties, function(records, message, details, succeeded) {

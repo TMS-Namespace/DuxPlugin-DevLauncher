@@ -1,0 +1,2 @@
+module DevLauncher.Providers.Zed.Integration
+ZedProvider 1.0 ZedProvider.qml

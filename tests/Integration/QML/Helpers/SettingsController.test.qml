@@ -1,5 +1,7 @@
 // SettingsController.test.qml - Check editor identity and damaged argument handling.
+// Rules: Runs in the offscreen shell; removing or cancelling an IDE must keep editor state correct, and an invalid draft must show its error only under its own field.
 import QtQuick
+import "../../../../src/QML/Services" as Services
 
 QtObject {
     id: checks
@@ -12,7 +14,7 @@ QtObject {
 
     // Build one saved IDE declaration in the current settings format.
     function savedProvider(identifier, name, extraArguments) {
-        return { id: identifier, type: "vscode", name: name, config: root.fixtureRoot + "/" + name, executable: "code", shared: "", extraArguments: extraArguments };
+        return { installationType: "native", id: identifier, type: "vscode", name: name, config: root.fixtureRoot + "/" + name, executable: "code", shared: "", extraArguments: extraArguments };
     }
 
     // Replace the saved IDE list and attach a fresh settings controller that loads it.
@@ -57,7 +59,7 @@ QtObject {
 
     // Malformed draft values must identify their own field and appear only under that input.
     function checkErrorFieldRouting() {
-        const valid = { id: firstIdentifier, type: "vscode", name: "Valid", config: root.fixtureRoot + "/Code", executable: "code", shared: "", extraArguments: [] };
+        const valid = { installationType: "native", id: firstIdentifier, type: "vscode", name: "Valid", config: root.fixtureRoot + "/Code", executable: "code", shared: "", extraArguments: [] };
         const invalidValues = { name: "1Invalid", executable: "", config: "relative", shared: "relative", extraArguments: [""] };
         const component = Qt.createComponent("file://" + root.pluginRoot + "/src/QML/Views/ProviderEditor.qml");
         if (!expect(component.status === Component.Ready, "provider editor could not load: " + component.errorString())) return false;
@@ -80,7 +82,7 @@ QtObject {
 
     // Every text-field edit stays unverified until the user commits it or requests Save.
     function checkTextEditsWaitForCommit() {
-        const valid = { id: firstIdentifier, type: "vscode", name: "Valid", config: root.fixtureRoot + "/Code", executable: "code", shared: "", extraArguments: [] };
+        const valid = { installationType: "native", id: firstIdentifier, type: "vscode", name: "Valid", config: root.fixtureRoot + "/Code", executable: "code", shared: "", extraArguments: [] };
         const current = createController([valid]);
         current.beginEdit(0);
         const edits = { name: "New alias", executable: "co", config: "/tmp/typing", shared: "/tmp/shared", extraArguments: ["--pro"] };
@@ -98,8 +100,9 @@ QtObject {
     function checkBrokenInstallationComparison() {
         const current = createController([savedProvider(firstIdentifier, "Broken", "invalid")]);
         current.editIndex = -1;
+        // Candidate with no validation paths, so only the saved invalid IDE can take part in the duplicate check.
         const candidate = { validationPaths: function() { return []; } };
-        const result = current.duplicateError(candidate, { type: "vscode", executable: "/usr/bin/code" });
+        const result = current.duplicateError(candidate, { installationType: "native", type: "vscode", executable: "/usr/bin/code" });
         return expect(result.includes("invalid settings for Broken"), "invalid saved IDE was skipped during duplicate validation");
     }
 
@@ -120,17 +123,17 @@ QtObject {
         const folderPath = root.fixtureRoot + "/sample";
         const otherPath = root.fixtureRoot + "/other-root";
         const message = "Repository folder " + folderPath + " has more than 500 repositories; only the first 500 are listed.";
-        root.settings.folders = [{ id: secondIdentifier, type: "localgit", folder: folderPath }, { id: thirdIdentifier, type: "localgit", folder: otherPath }];
-        root.testPluginService.setGlobalVar("devLauncher", "providerErrors", [{ providerId: secondIdentifier, message: message }]);
+        root.settings.folders = [{ installationType: "native", id: secondIdentifier, type: "localgit", folder: folderPath }, { id: thirdIdentifier, type: "localgit", folder: otherPath }];
+        Services.ScanState.providerErrors = [{ providerId: secondIdentifier, message: message }];
         const current = createController([savedProvider(firstIdentifier, "Alpha", [])]);
         if (!expect(current.providerErrorFor(secondIdentifier) === message && current.providerErrorFor(thirdIdentifier) === "", "folder error was not loaded onto its own row")) return false;
-        root.testPluginService.setGlobalVar("devLauncher", "providerErrors", []);
+        Services.ScanState.providerErrors = [];
         return expect(current.providerErrorFor(secondIdentifier) === "", "a clean scan kept the old folder error");
     }
 
     // Editing an IDE's executable clears only the dependent defaults the provider declares, and the labels come from its descriptor.
     function checkDependentFieldsFromDescriptor() {
-        const defaults = { id: firstIdentifier, type: "vscode", name: "Defaults", config: "~/.config/Code", executable: "code", shared: "~/.vscode-shared", extraArguments: [] };
+        const defaults = { installationType: "native", id: firstIdentifier, type: "vscode", name: "Defaults", config: "~/.config/Code", executable: "code", shared: "~/.vscode-shared", extraArguments: [] };
         const current = createController([defaults]);
         current.beginEdit(0);
         current.edit("executable", "/opt/tools/other-binary");
@@ -147,10 +150,10 @@ QtObject {
     // An IDE's scan error shows on that IDE's own row, and clears when a later scan publishes no error for it.
     function checkProviderErrorShown() {
         const message = "IDE history read did not finish.";
-        root.testPluginService.setGlobalVar("devLauncher", "providerErrors", [{ providerId: firstIdentifier, message: message }]);
+        Services.ScanState.providerErrors = [{ providerId: firstIdentifier, message: message }];
         const current = createController([savedProvider(firstIdentifier, "Alpha", []), savedProvider(secondIdentifier, "Beta", [])]);
         if (!expect(current.providerErrorFor(firstIdentifier) === message && current.providerErrorFor(secondIdentifier) === "", "the IDE error was not shown on its own row")) return false;
-        root.testPluginService.setGlobalVar("devLauncher", "providerErrors", []);
+        Services.ScanState.providerErrors = [];
         return expect(current.providerErrorFor(firstIdentifier) === "", "a clean scan kept the old IDE error");
     }
 

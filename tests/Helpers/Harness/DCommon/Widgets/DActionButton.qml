@@ -2,6 +2,7 @@
 import QtQuick
 Item {
     property string iconName: ""
+    property color backgroundColor: "transparent"
     property string tooltipText: ""
     signal clicked
 }

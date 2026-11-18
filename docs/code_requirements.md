@@ -81,6 +81,8 @@ failed, not what any one plugin does.
   JavaScript API. Enforce this with an audit test.
 - The facade rule applies inside an integration. The boundary between the host code and each integration is in section 6.
 - A broken component is recorded and reported (a load error list); it never prevents the others from working.
+- Dux global memory (`getGlobalVar` / `setGlobalVar`) is not used for shared state or for signals between surfaces. Use a
+  shared singleton service instead. Global memory is allowed only with a rigid justification written next to the call.
 
 ## 5. Data formats and migration
 

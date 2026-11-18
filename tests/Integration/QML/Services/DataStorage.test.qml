@@ -1,4 +1,5 @@
 // DataStorage.test.qml - Exercise damaged settings backup and storage write failures.
+// Rules: Runs in the offscreen shell; a damaged list must be backed up before a corrected list replaces it, and a failed backup must keep the original list.
 import QtQuick
 import qs.Common as HostCommon
 import qs.Services as HostServices
@@ -43,5 +44,19 @@ QtObject {
         if (!fixture.expect(JSON.stringify(backup.unreadable) === JSON.stringify(["corrupt text"]), "the corrupt backup was overwritten: " + JSON.stringify(backup))) return false;
         return fixture.expect(JSON.stringify(backup.folders) === JSON.stringify([["/tmp/root", "/tmp/root/nested"]]) && fixture.settings.folders.length === 1,
             "the damaged list was not preserved under its key");
+    }
+
+    // Entries saved before installation types existed get their provider's default when they are loaded; saved entries keep theirs.
+    function checkInstallationDefaultsOnLoad() {
+        const previousProviders = fixture.settings.providers;
+        Services.DataStorage.configure(fixture.testPluginService);
+        fixture.settings.providers = [
+            { id: fixture.firstIdentifier, type: "zed", name: "Zed", config: fixture.fixtureRoot + "/Zed", executable: "/usr/bin/flatpak", extraArguments: [] },
+            { id: fixture.secondIdentifier, type: "vscode", installationType: "snap", name: "Code", config: fixture.fixtureRoot + "/Code", executable: "code", extraArguments: [] }
+        ];
+        const loaded = Services.DataStorage.load("providers", []);
+        fixture.settings.providers = previousProviders;
+        return fixture.expect(loaded.length === 2 && loaded[0].installationType === "flatpak" && loaded[1].installationType === "snap",
+            "older provider entries did not get their default installation type: " + JSON.stringify(loaded));
     }
 }

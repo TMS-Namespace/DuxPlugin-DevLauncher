@@ -18,13 +18,13 @@ Item {
     Connections {
         target: HostCommon.SettingsData
         function onLauncherPluginVisibilityChanged() {
-            if (root.globals.scannedAt) root.liveRefreshNotifications++;
+            if (Services.ScanState.scannedAt) root.liveRefreshNotifications++;
         }
     }
 
     Connections {
-        function onGlobalVarChanged(pluginId, name) {
-            if (name !== "scannedAt" || !root.globals.scannedAt) return;
+        function onScanPublished() {
+            if (!Services.ScanState.scannedAt) return;
             if (root.notificationPhase > 0) {
                 const completedPhase = root.notificationPhase;
                 Qt.callLater(function() {
@@ -94,7 +94,7 @@ Item {
             root.launcherChecks.startLaunchCheck();
         }
 
-        target: pluginService
+        target: Services.ScanState
     }
 
     Timer {

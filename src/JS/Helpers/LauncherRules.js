@@ -1,5 +1,6 @@
 // LauncherRules.js - Filter the ordered cache for one query and present each entry as a launcher item.
 .pragma library
+// Rules: Pure filtering and presentation: keeps the cache order and never sorts it; no QML types or logging.
 .import "AgeFilterRules.js" as AgeFilterRules
 .import "Config.js" as Config
 .import "OpenWithRules.js" as OpenWithRules
@@ -24,11 +25,12 @@ function items(entries, query, options) {
     }
     return visible.map(function(entry, index) {
         const chosenId = selectedOverride ? selectedOverride.id : OpenWithRules.choose(entry, openableIds, options.defaultProvider);
-        const reporting = entry.sources.find(function(source) { return openableIds.includes(source.id); });
+        const reporting = entry.sources.filter(function(source) { return openableIds.includes(source.id); }).map(function(source) { return source.id; });
         const age = AgeFilterRules.itemAge({ modifiedAt: entry.date }, options.now);
         return { id: entry.path, name: entry.name, kind: entry.kind, comment: entry.path, action: "open:" + entry.path, path: entry.path,
-            provider: chosenId, sourceProvider: reporting ? reporting.id : "", sources: entry.sources.map(function(source) { return source.name; }),
+            provider: chosenId, sourceProviders: reporting, sourceProvider: reporting[0] || "", sources: entry.sources.map(function(source) { return source.name; }),
             recent: entry.date, ageLabel: age.label, openedAt: RecentCacheRules.latestSourceDate(entry), count: entry.count,
+            primaryAction: { name: "Launch", icon: "rocket_launch", action: "execute" },
             categories: ["Dev Launcher"], _preScored: Config.launcherInitialScore - index };
     });
 }

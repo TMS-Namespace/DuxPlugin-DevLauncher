@@ -1,4 +1,5 @@
 // Settings.qml - Compose grouped launcher, repository, and IDE settings.
+// Rules: Setting changes go to the settings controller, and the page only composes sections, file pickers, and its saved group layout through DataStorage.
 import QtQuick
 import QtQuick.Layouts
 import "../JS/Helpers/Config.js" as Config
@@ -11,17 +12,20 @@ import qs.Modals.FileBrowser
 import qs.Modules.Plugins
 import qs.Services as HostServices
 
+// The settings page: it composes the grouped sections and file pickers, and it sends its setting changes to the controller.
 PluginSettings {
     id: root
     pluginId: Config.pluginId
     readonly property alias controller: settingsController
     readonly property alias folderPicker: folderBrowser
     readonly property alias executablePicker: executableBrowser
+    readonly property alias iconPicker: iconBrowser
     readonly property alias dataFolderPicker: dataFolderBrowser
     readonly property alias sharedFolderPicker: sharedFolderBrowser
     readonly property alias defaultIdeDropdown: defaultIdeSelect
     readonly property alias resultsLimitDropdown: resultsLimitSelect
     readonly property alias searchPathsToggle: searchPathsControl
+    readonly property alias showBadgesToggle: showBadgesControl
     readonly property alias ageFilterStepper: ageLimitRow.amountStepper
     readonly property alias ageUnitDropdown: ageLimitRow.unitDropdown
     readonly property alias ageFilterRow: ageLimitRow
@@ -38,16 +42,28 @@ PluginSettings {
     readonly property alias triggerErrorLabel: triggerFieldRow.errorLabel
     readonly property alias triggerFieldRow: triggerFieldRow
     readonly property alias introText: introText
-    readonly property var initialExpanded: HostServices.PluginService.getGlobalVar(Config.pluginId, "expandedSettings", ({}))
+    // The open or closed state of each settings group, loaded from the saved plugin settings when the page is created.
+    property var initialExpanded: ({})
+    // The open or closed state last loaded or saved, so an unchanged state is never written again.
+    property var savedExpanded: ({})
+    // True while the saved state is being applied, so applying it is never saved back as a user change.
+    property bool restoringExpanded: false
 
-    // Remember open groups in Dux memory because saving launcher settings reloads this page.
+    // Load the saved open groups through the storage object once the host service is attached to the page.
+    Component.onCompleted: {
+        DataStorage.configure(root.pluginService);
+        restoringExpanded = true;
+        savedExpanded = DataStorage.load("expandedSettings", ({}));
+        initialExpanded = savedExpanded;
+        restoringExpanded = false;
+    }
+
+    // Save the open groups through the storage object, so they survive a reload of this page. Applying the saved state is skipped.
     function rememberExpanded() {
-        if (!pluginService || typeof pluginService.setGlobalVar !== "function") return;
-        pluginService.setGlobalVar(Config.pluginId, "expandedSettings", {
-            global: globalSettingsSection.expanded,
-            repositories: repositorySettingsSection.expanded,
-            ides: ideSettingsSection.expanded
-        });
+        if (restoringExpanded) return;
+        const expanded = { global: globalSettingsSection.expanded, repositories: repositorySettingsSection.expanded, ides: ideSettingsSection.expanded };
+        if (JSON.stringify(expanded) === JSON.stringify(savedExpanded)) return;
+        if (DataStorage.save("expandedSettings", expanded)) savedExpanded = expanded;
     }
 
     // Dux settings controls call these methods on their page.
@@ -63,11 +79,13 @@ PluginSettings {
         }
         return owners;
     }
+    // Sends the trigger through its own rules and every other key straight to the controller.
     function saveValue(key, value) {
         if (key === "trigger") return settingsController.setTrigger(value, root.activeLauncherTriggers(), HostServices.AppSearchService.getBuiltInLauncherTriggers());
         return settingsController.saveValue(key, value);
     }
 
+    // The controller that owns this page's folder and IDE lists and saves them.
     SettingsController { id: settingsController; pluginService: root.pluginService }
 
     StyledText {
@@ -146,6 +164,32 @@ PluginSettings {
                             id: searchPathsControl
                             checked: settingsController.searchPaths
                             onToggled: function(checked) { settingsController.setSearchPaths(checked); }
+                        }
+                    }
+                    RowLayout {
+                        width: parent.width
+                        spacing: Theme.spacingM
+                        Column {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingXS
+                            StyledText {
+                                text: "Show result badges"
+                                color: Theme.surfaceText
+                                font.pixelSize: Theme.fontSizeMedium
+                                font.weight: Font.Medium
+                            }
+                            StyledText {
+                                text: "Show IDE and Git badges on result icons."
+                                color: Theme.surfaceVariantText
+                                font.pixelSize: Theme.fontSizeSmall
+                                wrapMode: Text.WordWrap
+                                width: parent.width
+                            }
+                        }
+                        DToggle {
+                            id: showBadgesControl
+                            checked: settingsController.showBadges
+                            onToggled: function(checked) { settingsController.setShowBadges(checked); }
                         }
                     }
                     AgeFilterRow {
@@ -246,6 +290,7 @@ PluginSettings {
                     onBrowseExecutableRequested: executableBrowser.open()
                     onBrowseDataFolderRequested: dataFolderBrowser.open()
                     onBrowseSharedFolderRequested: sharedFolderBrowser.open()
+                    onBrowseIconRequested: iconBrowser.open()
                 }
             }
             SettingsGroupIcon {
@@ -268,6 +313,14 @@ PluginSettings {
         mode: "open"
         showHiddenFiles: true
         onAccepted: paths => { if (paths.length) settingsController.commitField("executable", paths[0]); }
+    }
+    FileBrowserModal {
+        id: iconBrowser
+        browserTitle: "Choose IDE icon"
+        mode: "open"
+        filters: ["*.svg", "*.png", "*.jpg", "*.jpeg", "*.webp"]
+        showHiddenFiles: true
+        onAccepted: paths => { if (paths.length) settingsController.edit("iconPath", paths[0]); }
     }
     FileBrowserModal {
         id: dataFolderBrowser

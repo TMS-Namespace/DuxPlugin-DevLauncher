@@ -1,4 +1,5 @@
 // SettingsController.qml - Own editable folder and IDE lists for one settings page.
+// Rules: An IDE is saved only after its draft passes the provider check, and a check that finished after an edit is ignored.
 import QtQuick
 import "../../JS/Helpers/Config.js" as Config
 import "../../JS/Helpers/ConfigurationRules.js" as ConfigurationRules
@@ -12,21 +13,26 @@ import "../../JS/Helpers/DraftRules.js" as DraftRules
 import "../BackgroundWorkers"
 import "../Services"
 
+// The controller for one settings page: it owns the folder and IDE lists, the draft being edited, and the validation state.
 Item {
     id: root
     property var pluginService: null
+    // The saved scan folders, each with its own identifier.
     property var folders: []
+    // The saved IDE installations shown in the settings list.
     property var providers: []
     property string defaultProvider: ""
     property string trigger: Config.trigger
     property int resultsLimit: Config.defaultResultsLimit
     property bool searchPaths: Config.searchPaths
+    property bool showBadges: Config.showBadges
     property int ageFilterValue: Config.defaultAgeFilter.value
     property string ageFilterUnit: Config.defaultAgeFilter.unit
     property int repositoryDepth: Config.defaultRepositoryDepth
     property var draft: ({})
     property int editIndex: -1
     property bool editorOpen: false
+    // True while a provider check is running.
     property bool validating: validator.running
     property string validationError: ""
     property string validationField: ""
@@ -35,14 +41,20 @@ Item {
     // Latest error per IDE, published by the scan orchestrator and shown in that IDE's settings row only.
     property var providerErrors: []
     property string triggerError: ""
+    // The temporary facade under check, released when the check ends.
     property var candidateHandler: null
     property bool verified: false
+    // The fingerprint of the draft that last passed the check.
     property string verifiedKey: ""
+    // Counts every edit, so a check started earlier can tell that it is stale.
     property int validationRevision: 0
+    // The revision that the running check started with.
     property int activeValidationRevision: -1
     property bool validationRequested: false
     property bool saveRequested: false
+    // True only when the draft passed its check and has not changed since.
     readonly property bool canSave: editorOpen && !validating && verified && validationError === "" && verifiedKey === ValidationRules.fingerprint(draft)
+    // True when Save may be pressed; a check can still be needed before the save completes.
     readonly property bool canSubmit: editorOpen && !validating && validationError === ""
 
     // Expose validation feedback only to its owning editor field.
@@ -144,6 +156,7 @@ Item {
         trigger = DataStorage.load("trigger", Config.trigger);
         resultsLimit = ResultRules.limit(DataStorage.load("resultsLimit", Config.defaultResultsLimit));
         searchPaths = DataStorage.load("searchPaths", Config.searchPaths) === true;
+        showBadges = DataStorage.load("showBadges", Config.showBadges) !== false;
         const ageSetting = AgeFilterRules.normalize(DataStorage.load("ageFilter", Config.defaultAgeFilter));
         ageFilterValue = ageSetting.value;
         ageFilterUnit = ageSetting.unit;
@@ -185,8 +198,7 @@ Item {
     // Read the latest scan errors of every source. Each folder and IDE row shows its own error, so a failing source is visible
     // in settings without a toast on every scan.
     function refreshScanErrors() {
-        if (!pluginService) return;
-        const publishedProviders = pluginService.getGlobalVar(Config.pluginId, "providerErrors", []);
+        const publishedProviders = ScanState.providerErrors;
         providerErrors = Array.isArray(publishedProviders) ? publishedProviders : [];
     }
 
@@ -223,7 +235,12 @@ Item {
     // Replace a draft field so QML bindings see the change.
     // The dependent-field rules come from the provider's declaration, not from this controller.
     function edit(field, value) {
-        draft = DraftRules.applyEdit(draft, ProvidersManager.defaultsFor(draft.type), ProvidersManager.descriptorFor(draft.type), field, value);
+        if (field === "installationType")
+            draft = DraftRules.switchInstallation(draft, ProvidersManager.descriptorFor(draft.type).installations, value);
+        else if (field === "type")
+            draft = DraftRules.switchProvider(draft, ProvidersManager.defaultsFor(draft.type), ProvidersManager.defaultsFor(value), providers, editIndex);
+        else
+            draft = DraftRules.applyEdit(draft, ProvidersManager.defaultsFor(draft.type), ProvidersManager.descriptorFor(draft.type), field, value);
         queueValidation();
     }
 
@@ -236,11 +253,13 @@ Item {
 
     // Keep each additional CLI argument as its own editable value.
     function addArgument() { edit("extraArguments", (draft.extraArguments || []).concat([""])); }
+    // Replaces one additional argument in the draft and invalidates the previous check.
     function editArgument(index, value) {
         const next = (draft.extraArguments || []).slice();
         next[index] = value;
         edit("extraArguments", next);
     }
+    // Removes one additional argument from the draft and asks for a new check.
     function removeArgument(index) {
         edit("extraArguments", (draft.extraArguments || []).filter(function(argument, position) { return position !== index; }));
         requestValidation();
@@ -363,6 +382,13 @@ Item {
         return true;
     }
 
+    // Show or hide both IDE and Git badges on launcher result icons.
+    function setShowBadges(enabled) {
+        if (typeof enabled !== "boolean" || !saveValue("showBadges", enabled)) return false;
+        showBadges = enabled;
+        return true;
+    }
+
     // Save one valid numeric age amount while retaining the selected unit.
     function setAgeFilterValue(value) {
         const next = AgeFilterRules.normalize({ value: value, unit: ageFilterUnit });
@@ -389,20 +415,24 @@ Item {
         return true;
     }
 
+    // Loads the saved lists again when the plugin service is attached.
     onPluginServiceChanged: load()
+    // Refreshes the scan errors when the scan publishes them.
     Connections {
-        target: root.pluginService
-        enabled: root.pluginService !== null
-        function onGlobalVarChanged(changedPluginId, name) {
+        target: ScanState
+        function onProviderErrorsChanged() {
             // A controller that was already destroyed may still receive the signal; it has nothing to refresh then.
             if (!root) return;
-            if (changedPluginId === Config.pluginId && name === "providerErrors") root.refreshScanErrors();
+            root.refreshScanErrors();
         }
     }
+    // Waits for typing to pause before starting a check, so one check runs per pause.
     Timer { id: validationTimer; interval: Config.providerValidationDebounceMilliseconds; repeat: false; onTriggered: root.validateDraft() }
+    // The background checker that runs the executable and path tests for the draft.
     ProviderValidator {
         id: validator
         onFinished: function(accepted, message, field) { root.acceptValidation(accepted, message, field); }
+        // Stores the resolved executable path in the draft and checks it for duplicates again.
         onResolvedExecutable: function(path) {
             if (root.activeValidationRevision !== root.validationRevision || !root.candidateHandler) return;
             if (root.draft.executable !== path) root.draft = Object.assign({}, root.draft, { executable: path });

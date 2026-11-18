@@ -1,6 +1,7 @@
 // RecentCacheRules.js - Keep one cache entry per path, reconcile each source's answer into it, and order the entries by date.
-// The saved usage map is the only store of launch counts; entries mirror it and never keep their own copy.
 .pragma library
+// Rules: Pure cache reconciliation: changes only the cache object it is given; no I/O, QML types or logging.
+// The saved usage map is the only store of launch counts; entries mirror it and never keep their own copy.
 .import "AgeFilterRules.js" as AgeFilterRules
 .import "Config.js" as Config
 
@@ -126,6 +127,14 @@ function applyModifiedTimes(cache, modifiedByPath, missingPaths, now) {
 // The paths that have never been read for a modification time, or whose read is older than the threshold.
 function stalePaths(cache, now) {
     return Object.keys(cache).filter(function(path) { return cache[path].statAt === 0 || now - cache[path].statAt >= Config.redateMilliseconds; });
+}
+
+// Order the entries, then remove every entry beyond the bound from the cache itself. The cache keeps only its newest
+// entries, so it never grows without limit; a removed entry comes back with the next scan that reports it.
+function orderAndBound(cache, bound) {
+    const ordered = sortEntries(cache);
+    for (const entry of ordered.slice(bound)) delete cache[entry.path];
+    return ordered.slice(0, bound);
 }
 
 // The entries ordered for searching: newest date first, then the most launches, then the path.

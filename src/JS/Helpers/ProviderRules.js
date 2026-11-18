@@ -1,11 +1,20 @@
 // ProviderRules.js - Check complete declarations and required provider overrides.
 .pragma library
+// Rules: Pure declaration checks: throws PluginError for unknown fields, bad settings or missing overrides; no QML types or logging.
 .import "../Contracts/PluginError.js" as PluginError
 .import "../Contracts/ProviderApi.js" as Base
 .import "ArgumentRules.js" as ArgumentRules
+.import "../Contracts/InstallationType.js" as InstallationType
 .import "ProviderIdentity.js" as ProviderIdentity
-var PropertyNames = Object.freeze(["providerType", "providerId", "name", "executable", "extraArguments", "settings"]);
+var PropertyNames = Object.freeze(["providerType", "providerId", "installationType", "name", "executable", "extraArguments", "settings"]);
 var RequiredMethods = Object.freeze(["sources", "parseHistory", "launchArgs", "validationArgs", "validationPaths", "validateExecutable", "validateArguments", "validateHistory"]);
+
+// A provider can only create configurations for installation types it declares.
+function assertInstallation(declared, descriptor) {
+    if (!(descriptor.installations || []).some(function(entry) { return entry.type === declared.installationType; }))
+        throw new PluginError.PluginError(PluginError.Code.PROVIDER_CONFIG, "This installation type is not supported by this provider.", declared.installationType, "installationType");
+    return true;
+}
 
 // Refuse unknown fields, invalid settings, and inherited abstract methods.
 function assertDeclaration(declared, api) {
@@ -14,6 +23,8 @@ function assertDeclaration(declared, api) {
             throw new PluginError.PluginError(PluginError.Code.PROVIDER_CONFIG, "An IDE provider is misconfigured.", "Unknown property " + key);
     }
     ArgumentRules.validate(declared.extraArguments);
+    if (!InstallationType.isValid(declared.installationType))
+        throw new PluginError.PluginError(PluginError.Code.PROVIDER_CONFIG, "Choose a supported installation type.", String(declared.installationType), "installationType");
     if (!ProviderIdentity.valid(declared.providerId))
         throw new PluginError.PluginError(PluginError.Code.PROVIDER_CONFIG, "Remove and add this IDE again to assign its internal identifier.", declared.name);
     if (typeof declared.name !== "string" || !/^[A-Za-z][A-Za-z0-9 _-]*$/.test(declared.name))

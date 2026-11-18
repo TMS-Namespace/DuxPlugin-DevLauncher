@@ -21,12 +21,12 @@ QtObject {
         Services.RecentItemsCache.reconcileSource(fixture.thirdIdentifier, "Idle", [{ path: existingPath, kind: "file", openedAt: Date.now() }], true, Date.now());
         Services.RecentItemsCache.commit();
         launcher = fixture.launcherComponent.createObject(null, { pluginService: fixture.testPluginService });
-        fixture.testPluginService.setGlobalVar(Config.pluginId, "scannedAt", Date.now());
+        Services.ScanState.scannedAt = Date.now();
         launcher.getItems("example");
-        fixture.testPluginService.setGlobalVar(Config.pluginId, "scannedAt", Date.now() - Config.refreshMilliseconds - 1);
+        Services.ScanState.scannedAt = Date.now() - Config.refreshMilliseconds - 1;
         launcher.lastRequest = Date.now() - Config.refreshMilliseconds + 50;
         launcher.getItems("example typed");
-        expectedRequest = fixture.globals.refreshRequest;
+        expectedRequest = Services.ScanState.refreshRequestedAt;
         expectedSortCount = Services.RecentItemsCache.sortCount;
         idleCheck.start();
     }
@@ -39,12 +39,12 @@ QtObject {
             checks.launcher.lastRequest = 0;
             checks.launcher.getItems("example typed");
             const cached = Services.RecentItemsCache.entries[checks.existingPath];
-            if (!checks.fixture.expect(checks.fixture.globals.refreshRequest === checks.expectedRequest && cached.statAt === 0 && Services.RecentItemsCache.sortCount === checks.expectedSortCount,
+            if (!checks.fixture.expect(Services.ScanState.refreshRequestedAt === checks.expectedRequest && cached.statAt === 0 && Services.RecentItemsCache.sortCount === checks.expectedSortCount,
                 "an idle redraw or expired throttle started discovery, queried dates, or reordered results")) return;
             // A search starts with the empty query: a stale scan is requested then, even when the throttle has expired.
             checks.launcher.lastRequest = 0;
             checks.launcher.getItems("");
-            const startRequest = checks.fixture.globals.refreshRequest;
+            const startRequest = Services.ScanState.refreshRequestedAt;
             if (!checks.fixture.expect(startRequest !== checks.expectedRequest,
                 "a new search with a stale scan did not request discovery")) return;
             // Typing does not start a scan for each character: the throttle is recent, and the expired throttle below is not used.
@@ -52,7 +52,7 @@ QtObject {
             checks.launcher.getItems("ex");
             checks.launcher.lastRequest = 0;
             checks.launcher.getItems("exa");
-            if (!checks.fixture.expect(checks.fixture.globals.refreshRequest === startRequest,
+            if (!checks.fixture.expect(Services.ScanState.refreshRequestedAt === startRequest,
                 "typing characters during a search requested discovery again")) return;
             checks.launcher.destroy();
             checks.launcher = null;

@@ -39,6 +39,8 @@ ShellRoot {
     property var refresherChecks: null
     property var refreshChecks: null
     property var metadataChecks: null
+    property var zedChecks: null
+    property var riderChecks: null
 
     // Report one failed expectation and stop the process so the runner sees the failure.
     function expect(condition, message) {
@@ -50,13 +52,13 @@ ShellRoot {
 
     // Run focused regression checks before the asynchronous folder-source case.
     function runSyncChecks() {
-        if (!storageChecks.checkDamagedSettings() || !storageChecks.checkCorruptBackupIsKept()) return false;
-        if (!providersChecks.checkDuplicateIdentifierRefused() || !providersChecks.checkValidationPathsMatchFacade() || !errorChecks.checkDetailsStayOutOfToast() || !databaseChecks.checkApostrophePathRead() || !folderViewChecks.checkFolderRowShowsScanError() || !errorChecks.checkLaunchErrorsAlwaysShown()) return false;
-        if (!readerChecks.checkStuckReadMovesOnThenEnds() || !readerChecks.checkClearedHistoryRemovesItems() || !orchestratorChecks.checkProviderErrorsStayOutOfToast() || !orchestratorChecks.checkFailedReadKeepsItems()) return false;
+        if (!storageChecks.checkDamagedSettings() || !storageChecks.checkCorruptBackupIsKept() || !storageChecks.checkInstallationDefaultsOnLoad()) return false;
+        if (!providersChecks.checkDuplicateIdentifierRefused() || !providersChecks.checkValidationPathsMatchFacade() || !providersChecks.checkDefaultsSeedDeclaredIdeOnly() || !errorChecks.checkDetailsStayOutOfToast() || !databaseChecks.checkApostrophePathRead() || !folderViewChecks.checkFolderRowShowsScanError() || !errorChecks.checkLaunchErrorsAlwaysShown()) return false;
+        if (!readerChecks.checkStuckReadMovesOnThenEnds() || !readerChecks.checkClearedHistoryRemovesItems() || !orchestratorChecks.checkProviderErrorsStayOutOfToast() || !orchestratorChecks.checkFailedReadKeepsItems() || !orchestratorChecks.checkKnownSourcesSurviveScan()) return false;
         if (!metadataChecks.checkRedrawKeepsCachedMetadata()) return false;
         if (!validatorChecks.checkUnavailableProvider()) return false;
         if (!settingsChecks.checkRemovalAboveEditor() || !settingsChecks.checkRemovalOfEditedRow() || !settingsChecks.checkInvalidSavedArguments() || !settingsChecks.checkErrorFieldRouting() || !settingsChecks.checkTextEditsWaitForCommit() || !settingsChecks.checkBrokenInstallationComparison() || !settingsChecks.checkCancelEdit() || !settingsChecks.checkFolderScanErrorShown() || !settingsChecks.checkDependentFieldsFromDescriptor() || !settingsChecks.checkProviderErrorShown()) return false;
-        if (!launcherChecks.checkMissingIdeLaunch() || !launcherChecks.checkRankingIsCached() || !launcherChecks.checkIdeAliasActions() || !iconChecks.checkIconMissCache()) return false;
+        if (!launcherChecks.checkMissingIdeLaunch() || !launcherChecks.checkRankingIsCached() || !launcherChecks.checkIdeAliasActions() || !iconChecks.checkIconMissCache() || !iconChecks.checkMultipleSources() || !iconChecks.checkBadgeMemoInvalidates()) return false;
         if (root.controller) root.controller.destroy();
         if (root.launcher) root.launcher.destroy();
         root.controller = null;
@@ -76,7 +78,7 @@ ShellRoot {
         // A fresh instance of the real icon service keeps the cache under test independent of the shared singleton.
         root.iconService = root.iconComponent.createObject(null);
         const checksRoot = "file://" + root.pluginRoot + "/tests/Integration/QML/";
-        const paths = ["Helpers/SettingsController.test.qml", "LauncherLaunch.test.qml", "Services/ResultItemIcon.test.qml", "Providers/LocalGit/LocalGitRecents.test.qml", "Services/DataStorage.test.qml", "BackgroundWorkers/ProviderValidator.test.qml", "Services/ProvidersManager.test.qml", "Services/ErrorHandler.test.qml", "Providers/VSCode/HistoryDatabase.test.qml", "Views/FolderSettings.test.qml", "Providers/VSCode/VSCodeRecents.test.qml", "Services/ScanOrchestratorErrors.test.qml", "BackgroundWorkers/DateRefresher.test.qml", "LauncherRefresh.test.qml", "Services/FileMetadataService.test.qml"];
+        const paths = ["Helpers/SettingsController.test.qml", "LauncherLaunch.test.qml", "Services/ResultItemIcon.test.qml", "Providers/LocalGit/LocalGitRecents.test.qml", "Services/DataStorage.test.qml", "BackgroundWorkers/ProviderValidator.test.qml", "Services/ProvidersManager.test.qml", "Services/ErrorHandler.test.qml", "Providers/VSCode/HistoryDatabase.test.qml", "Views/FolderSettings.test.qml", "Providers/VSCode/VSCodeRecents.test.qml", "Services/ScanOrchestratorErrors.test.qml", "BackgroundWorkers/DateRefresher.test.qml", "LauncherRefresh.test.qml", "Services/FileMetadataService.test.qml", "Providers/Zed/ZedRecents.test.qml", "Providers/Rider/RiderRecents.test.qml"];
         const checkComponents = paths.map(function(relativePath) { return Qt.createComponent(checksRoot + relativePath); });
         for (const component of checkComponents) if (!expect(component.status === Component.Ready, "check load " + component.errorString())) return;
         settingsChecks = checkComponents[0].createObject(null, { fixture: root });
@@ -94,8 +96,10 @@ ShellRoot {
         refresherChecks = checkComponents[12].createObject(null, { fixture: root });
         refreshChecks = checkComponents[13].createObject(null, { fixture: root });
         metadataChecks = checkComponents[14].createObject(null, { fixture: root });
+        zedChecks = checkComponents[15].createObject(null, { fixture: root });
+        riderChecks = checkComponents[16].createObject(null, { fixture: root });
         if (!runSyncChecks()) return;
-        validatorChecks.startPathCheck(function() { refresherChecks.startRefresherCheck(function() { refreshChecks.startIdleCheck(function() { localGitChecks.startReaderCheck(); }); }); });
+        validatorChecks.startPathCheck(function() { validatorChecks.startSnapCheck("vscode", function() { validatorChecks.startSnapCheck("zed", function() { validatorChecks.startRiderCheck("native", function() { validatorChecks.startRiderCheck("snap", function() { refresherChecks.startRefresherCheck(function() { refreshChecks.startIdleCheck(function() { zedChecks.start(function() { riderChecks.start(function() { localGitChecks.startReaderCheck(); }); }); }); }); }); }); }); }); });
     }
 
     QtObject {
@@ -104,20 +108,24 @@ ShellRoot {
         signal pluginDataChanged(string pluginId)
         signal globalVarChanged(string pluginId, string name)
 
+        // Returns the saved value for the given setting name from the test settings, or the default when none is saved.
         function loadPluginData(pluginId, name, defaultValue) {
             return root.settings[name] !== undefined ? root.settings[name] : defaultValue;
         }
 
+        // Stores the value under the given setting name in the test settings and signals that plugin data changed.
         function savePluginData(pluginId, name, value) {
             root.settings[name] = value;
             pluginDataChanged(pluginId);
             return true;
         }
 
+        // Returns the global variable with the given name, or the default when it has not been set.
         function getGlobalVar(pluginId, name, defaultValue) {
             return root.globals[name] !== undefined ? root.globals[name] : defaultValue;
         }
 
+        // Stores a global variable under the given name and signals that it changed.
         function setGlobalVar(pluginId, name, value) {
             root.globals[name] = value;
             globalVarChanged(pluginId, name);

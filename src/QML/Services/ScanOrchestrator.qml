@@ -14,6 +14,8 @@ Item {
     property string activeConfiguration: ""
     property bool rescanPending: false
     property bool scanRunning: false
+    // When the last scan finished, read from the shared scan state; zero until a scan has finished.
+    readonly property double lastScanAt: ScanState.scannedAt
     property var pendingProviderIds: []
     property var providerNames: ({})
     // The sources of the previous scan; a source that disappears from settings is dropped from the cache.
@@ -43,7 +45,7 @@ Item {
 
     // Settings changes invalidate discovery; the next launcher request owns the work.
     function invalidate() {
-        pluginService.setGlobalVar(pluginId, "scannedAt", 0);
+        ScanState.invalidateScan();
     }
 
     // Start one bounded scan, leaving a changed configuration pending until it finishes.
@@ -140,11 +142,10 @@ Item {
     function publish() {
         scanRunning = false;
         RecentItemsCache.commit();
-        pluginService.setGlobalVar(pluginId, "scannedAt", Date.now());
         // Scan errors of every source are published for the settings page, which shows each one on its own row.
         const loadFailures = ProvidersManager.loadErrors.map(function(error) { return { providerId: error.providerId, message: error.userMessage }; });
         const sourceErrors = providerErrors.concat(loadFailures);
-        pluginService.setGlobalVar(pluginId, "providerErrors", sourceErrors);
+        ScanState.publishScan(Date.now(), sourceErrors);
         // Only a folder added since the last scan can produce a toast. Every other error stays in the settings page,
         // because a scan runs again and again and a repeated toast would spam the user.
         const newlyAddedErrors = RepositoryNotificationRules.messages(sourceErrors, notificationFolders);
@@ -178,18 +179,22 @@ Item {
 
         }
 
-        function onGlobalVarChanged(changedPluginId, name) {
-            // A destroyed orchestrator may still receive host signals; it must not start a scan then.
-            if (!root) return;
-            if (changedPluginId === root.pluginId && name === "refreshRequest")
-                root.refresh();
-            if (changedPluginId === root.pluginId && name === "settingsRevision" && root.configuration() !== root.activeConfiguration)
-                root.invalidate();
-
-        }
-
         target: root.pluginService
         enabled: root.pluginService !== null
+    }
+
+    // A refresh request from the launcher starts a scan; a saved setting that changed the configuration invalidates the last scan.
+    Connections {
+        target: ScanState
+        function onRefreshRequested() {
+            // A destroyed orchestrator may still receive the signal; it must not start a scan then.
+            if (!root) return;
+            root.refresh();
+        }
+        function onSettingsChanged() {
+            if (!root) return;
+            if (root.configuration() !== root.activeConfiguration) root.invalidate();
+        }
     }
 
     DateRefresher { id: dateRefresher }

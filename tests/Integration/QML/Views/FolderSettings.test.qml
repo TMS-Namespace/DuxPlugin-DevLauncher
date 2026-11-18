@@ -1,5 +1,7 @@
 // FolderSettings.test.qml - Check that each folder row shows the scan error of its own folder source.
+// Rules: Runs in the offscreen shell; each folder row must show only the scan error published for its own identifier.
 import QtQuick
+import "../../../../src/QML/Services" as Services
 
 QtObject {
     required property var fixture
@@ -10,10 +12,10 @@ QtObject {
         const otherPath = fixture.fixtureRoot + "/other-root";
         const message = "Repository folder " + folderPath + " has more than 500 repositories; only the first 500 are listed.";
         fixture.settings.folders = [
-            { id: fixture.secondIdentifier, type: "localgit", folder: folderPath },
-            { id: fixture.thirdIdentifier, type: "localgit", folder: otherPath }
+            { installationType: "native", id: fixture.secondIdentifier, type: "localgit", folder: folderPath },
+            { installationType: "native", id: fixture.thirdIdentifier, type: "localgit", folder: otherPath }
         ];
-        fixture.testPluginService.setGlobalVar("devLauncher", "providerErrors", [{ providerId: fixture.secondIdentifier, message: message }]);
+        Services.ScanState.providerErrors = [{ providerId: fixture.secondIdentifier, message: message }];
         const controller = fixture.controllerComponent.createObject(null, { pluginService: fixture.testPluginService });
         controller.load();
         const viewComponent = Qt.createComponent("file://" + fixture.pluginRoot + "/src/QML/Views/FolderSettings.qml");
@@ -24,7 +26,7 @@ QtObject {
         const secondRowText = view.folderRows.itemAt(1).scanErrorText;
         view.destroy();
         controller.destroy();
-        fixture.testPluginService.setGlobalVar("devLauncher", "providerErrors", []);
+        Services.ScanState.providerErrors = [];
         return fixture.expect(firstRowText === message && secondRowText === "", "folder rows show the wrong errors: [" + firstRowText + "] [" + secondRowText + "]");
     }
 }

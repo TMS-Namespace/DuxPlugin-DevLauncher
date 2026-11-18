@@ -1,8 +1,9 @@
 // LocalGitApi.test.js - Check repository records from find output, and that a folder source refuses launching and arguments.
+// Rules: Runs in plain node; a folder source must never launch items or accept extra arguments, and it probes only find.
 const assert = require("node:assert/strict");
 const source = require("../../../../Helpers/LoadSource.cjs");
 const api = source("Providers/LocalGit/LocalGitApi.js").create();
-const properties = source("Providers/LocalGit/LocalGitProperties.js").create({ id: "9f8e7d6c-5b4a-4c3b-8a2d-1e0f9a8b7c6d", type: "localgit", name: "Folder 9f8e7d", folder: "/tmp/projects", depth: 3 });
+const properties = source("Providers/LocalGit/LocalGitProperties.js").create({ installationType: "native", id: "9f8e7d6c-5b4a-4c3b-8a2d-1e0f9a8b7c6d", type: "localgit", name: "Folder 9f8e7d", folder: "/tmp/projects", depth: 3 });
 
 // Git roots come out of find as their .git paths; each record carries this folder's identity.
 const records = api.parseHistory({ output: "/tmp/projects/a/.git\u0000/tmp/projects/b/.git\u0000" }, properties);

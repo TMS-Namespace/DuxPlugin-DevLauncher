@@ -1,4 +1,5 @@
 // ProviderValidator.qml - Check one draft IDE executable and its recent history asynchronously.
+// Rules: Only one check runs at a time, and a finished check reports its result without saving any setting.
 import QtQuick
 import Quickshell.Io
 import "../Services"
@@ -9,8 +10,10 @@ Item {
 
     property var handler: null
     property bool running: false
+    // The declared folders and files to test, in the order they are checked.
     property var paths: []
     property int pathIndex: 0
+    // The full path of the executable that the which command found.
     property string resolvedPath: ""
     signal finished(bool accepted, string message, string field)
     signal resolvedExecutable(string path)
@@ -50,8 +53,9 @@ Item {
         versionProcess.hasExited = false;
         versionProcess.hasStreamed = false;
         versionProcess.hasErrorStreamed = false;
-        const argumentsList = handler.validationArgs().slice();
-        argumentsList[0] = resolvedPath;
+        const probe = typeof handler.validationProbe === "function" ? handler.validationProbe(resolvedPath) : [];
+        const argumentsList = probe && probe.length ? probe.slice() : handler.validationArgs().slice();
+        if (!probe || !probe.length) argumentsList[0] = resolvedPath;
         versionProcess.command = ["timeout", Config.providerValidationTimeout].concat(argumentsList);
         versionProcess.running = true;
     }
@@ -86,6 +90,7 @@ Item {
         return target ? target.field : "";
     }
 
+    // Finds the executable path with the which command, then reports the path or a failure.
     Process {
         id: executableProcess
         property string outputText: ""
@@ -113,8 +118,10 @@ Item {
         }
     }
 
+    // Runs one test on the declared path at pathIndex: exists, then file or folder, then readable, and for folders also executable.
     Process {
         id: pathProcess
+        // The test flag, such as -e or -r, of the path check that is running.
         property string flag: ""
 
         // Required paths must exist and be readable; optional paths are checked when present.
@@ -139,6 +146,7 @@ Item {
         }
     }
 
+    // Runs the executable's version or probe command and checks its output and error text.
     Process {
         id: versionProcess
         property string outputText: ""

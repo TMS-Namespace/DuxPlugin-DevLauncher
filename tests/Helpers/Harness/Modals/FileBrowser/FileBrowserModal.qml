@@ -3,6 +3,7 @@ import QtQuick
 Item {
     property string browserTitle: ""
     property string mode: "open"
+    property var filters: []
     property bool showHiddenFiles: false
     property bool opened: false
     signal accepted(var paths)

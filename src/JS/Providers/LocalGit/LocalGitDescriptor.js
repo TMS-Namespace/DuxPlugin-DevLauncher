@@ -1,10 +1,12 @@
 // LocalGitDescriptor.js - Declare the one folder field and the capabilities of the local Git folder source.
 .pragma library
+// Rules: Plain declaration data only: no logic beyond returning the frozen descriptor; no QML types or logging.
 .import "LocalGitConstants.js" as Constants
+.import "../../Contracts/InstallationType.js" as InstallationType
 
 // A folder source cannot open items and scans folders, so the plugin offers it only as a scanned folder.
 var descriptor = Object.freeze({
-    typeId: Constants.PROVIDER_TYPE,
+    typeId: Constants.PROVIDER_TYPE, installations: Object.freeze([{ type: InstallationType.Native, executable: Constants.EXECUTABLE }]),
     name: Constants.DEFAULT_NAME,
     launchable: false,
     scansFolders: true,

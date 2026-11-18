@@ -1,5 +1,6 @@
 // VSCodeConstants.js - VS Code storage keys, source names, and history limit.
 .pragma library
+// Rules: Constants only: no logic, no QML types, no logging.
 var PROVIDER_TYPE = "vscode";
 var RECENT_KEY = "history.recentlyOpenedPathsList";
 var JSON_KEY = "openedPathsList";
@@ -16,3 +17,8 @@ var DEFAULT_CONFIG_DIRECTORY = "~/.config/Code";
 var DEFAULT_SHARED_STORAGE_DIRECTORY = "~/.vscode-shared";
 var DEFAULT_EXECUTABLE = "code";
 var SHARED_NAMES = Object.freeze({ "Code": "vscode", "Code - Insiders": "vscode-insiders" });
+var FLATPAK_ID = "com.visualstudio.code";
+var FLATPAK_CONFIG_DIRECTORY = "~/.var/app/com.visualstudio.code/config/Code";
+var FLATPAK_SHARED_DIRECTORY = "~/.var/app/com.visualstudio.code/.vscode-shared";
+var SNAP_NAME = "code";
+var SNAP_EXECUTABLE = "/usr/bin/snap";

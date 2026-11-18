@@ -1,6 +1,8 @@
 // IconRules.js - Choose launcher icon descriptors from Dux file metadata.
 .pragma library
+// Rules: Pure icon descriptor and SVG composition: no QML types, no logging, no I/O.
 .import "BadgeAppearanceRules.js" as BadgeAppearanceRules
+.import "Config.js" as Config
 
 // Prefer the file service's icon, then choose a themed fallback for each item kind.
 function iconCandidates(kind, iconName) {
@@ -37,25 +39,39 @@ function imageElement(path, svgText, x, y, size) {
     return '<image href="' + imageSource(path) + '" x="' + x + '" y="' + y + '" width="' + size + '" height="' + size + '"/>';
 }
 
-// Layer rounded IDE and Git badges over the base icon in Dux's SVG renderer.
-function composite(basePath, badgePath, baseSvg, badgeSvg, repository) {
-    const badgeAtTop = repository;
-    const badgeY = badgeAtTop ? 2 : 36;
+// Place IDE badges in corners, followed by the Git badge in the next free corner.
+function composite(basePath, badgePaths, baseSvg, badgeSvgs, repository) {
+    const paths = Array.isArray(badgePaths) ? badgePaths : badgePaths ? [badgePaths] : [];
+    const texts = Array.isArray(badgeSvgs) ? badgeSvgs : badgeSvgs ? [badgeSvgs] : [];
+    let badges = "";
+    for (let index = 0; index < paths.length && index < Config.maxSourceBadges; index++) {
+        const single = paths.length === 1;
+        const badgeLeft = index < 2 ? 64 - Config.sourceBadgeInset - Config.sourceBadgeSize : Config.sourceBadgeInset;
+        const badgeTop = single ? (repository ? Config.sourceBadgeInset : 64 - Config.sourceBadgeInset - Config.sourceBadgeSize)
+            : index % 2 ? 64 - Config.sourceBadgeInset - Config.sourceBadgeSize : Config.sourceBadgeInset;
+        const size = Config.sourceBadgeSize;
+        const padding = Config.sourceBadgePadding;
+        badges += BadgeAppearanceRules.surfaceAt(baseSvg, badgeLeft, badgeTop, size) + imageElement(paths[index], texts[index], badgeLeft + padding, badgeTop + padding, size - padding * 2);
+    }
+    let marker = "";
+    if (repository) {
+        if (paths.length <= 1) marker = BadgeAppearanceRules.gitMarkerAt(baseSvg, 64 - Config.sourceBadgeInset - Config.sourceBadgeSize, 64 - Config.sourceBadgeInset - Config.sourceBadgeSize, Config.sourceBadgeSize);
+        else if (paths.length < Config.maxSourceBadges)
+            marker = BadgeAppearanceRules.gitMarkerAt(baseSvg, Config.sourceBadgeInset, paths.length === 2 ? Config.sourceBadgeInset : 64 - Config.sourceBadgeInset - Config.sourceBadgeSize, Config.sourceBadgeSize);
+    }
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="64" height="64" viewBox="0 0 64 64">'
-        + imageElement(basePath, baseSvg, 0, 0, 64)
-        + (badgePath ? BadgeAppearanceRules.surface(baseSvg, badgeAtTop) + imageElement(badgePath, badgeSvg, 36, badgeY, 26) : "")
-        + (repository ? BadgeAppearanceRules.gitMarker(baseSvg) : "")
-        + '</svg>';
+        + imageElement(basePath, baseSvg, 0, 0, 64) + badges + marker + '</svg>';
     return "svg:data:image/svg+xml," + encodeURIComponent(svg);
 }
 
 // Use a themed folder with a branch badge for repositories.
 function descriptor(kind, iconName, resolvedIconPath, badgeIconPath, baseSvg, badgeSvg) {
+    const hasBadges = Array.isArray(badgeIconPath) ? badgeIconPath.length > 0 : !!badgeIconPath;
     if (kind === "repository") {
         if (resolvedIconPath) return { icon: composite(resolvedIconPath, badgeIconPath, baseSvg, badgeSvg, true), iconType: "image" };
         return { icon: "material:account_tree", iconType: "material" };
     }
-    if (badgeIconPath && resolvedIconPath)
+    if (hasBadges && resolvedIconPath)
         return { icon: composite(resolvedIconPath, badgeIconPath, baseSvg, badgeSvg), iconType: "image" };
     if (iconName) return { icon: iconName, iconType: "image" };
     if (kind === "folder") return { icon: "folder", iconType: "image" };

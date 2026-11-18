@@ -1,5 +1,6 @@
 // ConfigurationRules.js - Bound current-format user settings before scanning.
 .pragma library
+// Rules: Pure settings normalization: drops invalid saved entries instead of throwing; no QML types or logging.
 .import "Config.js" as Config
 .import "PathRules.js" as PathRules
 .import "ProviderIdentity.js" as ProviderIdentity
@@ -37,19 +38,6 @@ function folderEntries(value) {
         if (addition.path) selected.push(Object.assign({}, entry, { folder: addition.path }));
     }
     return selected;
-}
-
-// Convert folders saved in the earliest format (plain path strings) into folder entries with new unique identifiers.
-// Entries already in the current format are kept as they are.
-function migratedFolders(value, typeId) {
-    if (!Array.isArray(value)) return value;
-    const taken = value.filter(function(item) { return item && typeof item === "object" && ProviderIdentity.valid(item.id); }).map(function(item) { return item.id; });
-    return value.map(function(item) {
-        if (typeof item !== "string") return item;
-        const id = ProviderIdentity.create(taken);
-        taken.push(id);
-        return { id: id, type: typeId, folder: item };
-    });
 }
 
 // Keep only current-format provider declarations within the configured limit.

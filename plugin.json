@@ -19,5 +19,5 @@
     "requires_dms": ">=2.0.0",
     "distro": ["any"],
     "compositors": ["any"],
-    "dependencies": ["find", "timeout", "stat", "cat", "which", "test", "xdg-open"]
+    "dependencies": ["find", "timeout", "stat", "cat", "head", "which", "test", "xdg-open"]
 }

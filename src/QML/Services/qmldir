@@ -9,3 +9,4 @@ singleton SystemOpener 1.0 SystemOpener.qml
 singleton FileMetadataService 1.0 FileMetadataService.qml
 singleton ResultItemIcon 1.0 ResultItemIcon.qml
 singleton RecentItemsCache 1.0 RecentItemsCache.qml
+singleton ScanState 1.0 ScanState.qml

@@ -1,4 +1,5 @@
 // RecentCacheRules.test.js - Check reconciliation of source answers, dates, launches, stat refreshes, and ordering.
+// Rules: Runs in plain node; source answers must reconcile without duplicating entries, and dates are recomputed only past the threshold.
 const assert = require("node:assert/strict");
 const source = require("../../../Helpers/LoadSource.cjs");
 const cache = source("Helpers/RecentCacheRules.js");
@@ -94,3 +95,14 @@ const ordered = cache.sortEntries({
     "/tmp/new-b.js": { path: "/tmp/new-b.js", date: now, count: 7 }
 });
 assert.deepEqual(Array.from(ordered, entry => entry.path), ["/tmp/new-b.js", "/tmp/new-many.js", "/tmp/new-few.js", "/tmp/old.js"]);
+
+// The cache keeps only its newest entries up to the bound, and removes the rest from the cache itself.
+const bounded = {
+    "/tmp/x1.js": { path: "/tmp/x1.js", date: now, count: 0 },
+    "/tmp/x2.js": { path: "/tmp/x2.js", date: now - day, count: 0 },
+    "/tmp/x3.js": { path: "/tmp/x3.js", date: now - 2 * day, count: 0 }
+};
+const keptEntries = cache.orderAndBound(bounded, 2);
+assert.deepEqual(Array.from(keptEntries, entry => entry.path), ["/tmp/x1.js", "/tmp/x2.js"]);
+assert.equal(bounded["/tmp/x3.js"], undefined, "an entry beyond the bound is removed from the cache");
+assert.equal(Object.keys(bounded).length, 2);

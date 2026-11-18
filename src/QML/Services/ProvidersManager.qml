@@ -1,46 +1,68 @@
 // ProvidersManager.qml - Register integrations, create facades, and isolate provider load failures.
+// Rules: Registers the integrations and builds their facades; a configuration that fails to load is recorded and never stops the others.
 // Providers are reached only through their exported entry points (Integration folders); no provider internals are imported here.
 import "../../JS/Contracts/PluginError.js" as PluginError
 import "../../JS/Helpers/ProviderRules.js" as ProviderRules
 import "../../JS/Providers/VSCode/Integration/VSCodeProvider.js" as VSCodeProviderModule
+import "../../JS/Providers/Zed/Integration/ZedProvider.js" as ZedProviderModule
+import "../../JS/Providers/Rider/Integration/RiderProvider.js" as RiderProviderModule
 import "../../JS/Providers/LocalGit/Integration/LocalGitProvider.js" as LocalGitProviderModule
 import "../Contracts"
 import "../Providers/VSCode/Integration"
+import "../Providers/Zed/Integration"
+import "../Providers/Rider/Integration"
 import "../Providers/LocalGit/Integration"
 import QtQml
 pragma Singleton
 
+// The singleton registry: it lists every integration, builds the facade for each saved installation, and records the ones that fail.
 QtObject {
     id: root
 
+    // The facades of the installations that loaded, keyed by installation identifier.
     property var handlers: ({
     })
+    // One error record for each installation that failed in the last reload.
     property var loadErrors: []
     // The one place where each provider is listed. Adding a provider adds one entry point and one line here.
     readonly property VSCodeProvider vsCodeEntry: VSCodeProvider {}
+    // The entry point of the Zed integration, the only part of it the host uses.
+    readonly property ZedProvider zedEntry: ZedProvider {}
+    // The entry point of the Rider integration, the only part of it the host uses.
+    readonly property RiderProvider riderEntry: RiderProvider {}
+    // The entry point of the Local Git integration, the only part of it the host uses.
     readonly property LocalGitProvider localGitEntry: LocalGitProvider {}
+    // The registry: one description per integration, built from its API, declaration and reader.
     readonly property var sources: [
         describe(VSCodeProviderModule.create(), ProviderType.VSCode, vsCodeEntry.readerType),
+        describe(ZedProviderModule.create(), ProviderType.Zed, zedEntry.readerType),
+        describe(RiderProviderModule.create(), ProviderType.Rider, riderEntry.readerType),
         describe(LocalGitProviderModule.create(), ProviderType.LocalGit, localGitEntry.readerType)
     ]
+    // The template that creates one ProviderHandler facade.
     property Component handlerType
 
+    // Builds each facade as a ProviderHandler object.
     handlerType: Component {
         ProviderHandler {
         }
 
     }
 
+    // The template that creates the declared properties of one installation.
     property Component propertiesType
 
+    // Builds one ProviderProperties object for the declared data.
     propertiesType: Component {
         ProviderProperties {
         }
 
     }
 
+    // The template that creates one load error record.
     property Component errorType
 
+    // Builds one ProviderLoadError record for an installation that failed to load.
     errorType: Component {
         ProviderLoadError {
         }
@@ -66,9 +88,10 @@ QtObject {
         return handlers[providerId] || null;
     }
 
-    // Keep installed provider defaults in the provider registry.
+    // The IDEs seeded into a new settings list: every launchable provider whose descriptor declares defaultEnabled.
+    // Providers that do not declare it are added by the user, so no count is capped here.
     function defaultConfigurations() {
-        return sources.filter(function(source) { return source.launchable; }).map(function(source) { return source.provider.defaultConfiguration(); });
+        return sources.filter(function(source) { return source.launchable && source.descriptor.defaultEnabled === true; }).map(function(source) { return source.provider.defaultConfiguration(); });
     }
 
     // Return the declaration the plugin may read for one IDE type. Unknown types get an empty declaration.
@@ -109,6 +132,7 @@ QtObject {
         const declared = source.provider.createProperties(configuration);
         const api = source.provider.createApi();
         ProviderRules.assertDeclaration(declared, api);
+        ProviderRules.assertInstallation(declared, source.descriptor);
         return { source: source, declared: declared, api: api };
     }
 
@@ -117,7 +141,7 @@ QtObject {
         const parts = declaredFor(configuration);
         const properties = propertiesType.createObject(null);
         for (const key of Object.keys(parts.declared)) properties[key] = parts.declared[key];
-        const handler = handlerType.createObject(null, { "type": parts.source.type, "properties": properties, "api": parts.api, "readerType": parts.source.readerType, "launchable": parts.source.launchable });
+        const handler = handlerType.createObject(null, { "type": parts.source.type, "properties": properties, "api": parts.api, "readerType": parts.source.readerType, "launchable": parts.source.launchable, "iconPath": typeof configuration.iconPath === "string" ? configuration.iconPath : "" });
         if (!handler) {
             properties.destroy();
             throw new PluginError.PluginError(PluginError.Code.PROVIDER_CONFIG, "This IDE provider could not be loaded.", configuration.type);

@@ -1,4 +1,5 @@
 // IdeSettings.qml - List configured IDEs and open the provider editor.
+// Rules: Rows show the saved IDEs and their last scan errors; every change goes through the controller.
 import QtQuick
 import QtQuick.Layouts
 import qs.Common
@@ -7,9 +8,11 @@ import qs.Modals.Common
 import "../../JS/Helpers/Config.js" as Config
 import "../Services"
 
+// The list of saved IDEs with their scan errors, the add button, and the removal dialog.
 Column {
     id: root
     required property var controller
+    // The editor that is open: the add editor, or the editor of the row being edited.
     readonly property var editorItem: {
         if (!root.controller.editorOpen) return null;
         if (root.controller.editIndex < 0) return addEditorLoader.item;
@@ -22,6 +25,7 @@ Column {
     signal browseExecutableRequested
     signal browseDataFolderRequested
     signal browseSharedFolderRequested
+    signal browseIconRequested
     spacing: Theme.spacingS
     width: parent ? parent.width : 0
 
@@ -47,6 +51,7 @@ Column {
         wrapMode: Text.WordWrap
         width: parent.width
     }
+    // Lists every IDE that failed to load, with its name and message.
     Repeater {
         model: ProvidersManager.loadErrors
         delegate: StyledText {
@@ -57,6 +62,7 @@ Column {
             width: root.width
         }
     }
+    // The template for one provider editor, shared by the row editor and the add editor.
     Component {
         id: editorType
         ProviderEditor {
@@ -64,11 +70,14 @@ Column {
             onBrowseExecutableRequested: root.browseExecutableRequested()
             onBrowseDataFolderRequested: root.browseDataFolderRequested()
             onBrowseSharedFolderRequested: root.browseSharedFolderRequested()
+            onBrowseIconRequested: root.browseIconRequested()
         }
     }
+    // One row per saved IDE, each with its own editor card.
     Repeater {
         id: providersRepeater
         model: root.controller.providers
+        // One IDE row: its icon, name, edit and remove buttons, scan error text, and editor card.
         delegate: Column {
             required property int index
             required property var modelData
@@ -96,7 +105,8 @@ Column {
                     AppIconRenderer {
                         id: providerIcon
                         iconValue: {
-                            const iconPath = ResultItemIcon.executableIconPath(modelData.executable);
+                            const revision = ResultItemIcon.revision;
+                            const iconPath = ResultItemIcon.providerIconPath(modelData.type, modelData.executable, modelData.installationType, modelData.iconPath);
                             return iconPath ? "image:" + iconPath : "material:code";
                         }
                         iconSize: Theme.iconSizeLarge

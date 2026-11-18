@@ -75,18 +75,20 @@ ShellRoot {
         orchestrator = orchestratorComponent.createObject(testWindow.contentItem, {
             "pluginService": pluginService
         });
-        if (!orchestrator || orchestrator.scanRunning || root.globals.scannedAt !== undefined || orchestrator.notificationFolders.length !== 0) {
+        if (!orchestrator || orchestrator.scanRunning || orchestrator.lastScanAt !== 0 || orchestrator.notificationFolders.length !== 0) {
             console.warn("T:FAIL orchestrator started scanning without a search");
             Qt.quit();
             return;
         }
         launcher.getItems("sample");
-        if (!orchestrator.scanRunning || !root.globals.refreshRequest) {
+        if (!orchestrator.scanRunning || !launcher.lastRequest) {
             console.warn("T:FAIL search did not start scan on demand");
             Qt.quit();
             return;
         }
-        pluginService.setGlobalVar("devLauncher", "refreshRequest", Date.now());
+        launcher.lastRequest = 0;
+        launcher.lastQuery = null;
+        launcher.getItems("sample");
         if (!orchestrator.scanRunning || orchestrator.rescanPending) {
             console.warn("T:FAIL duplicate refresh queued during active scan");
             Qt.quit();

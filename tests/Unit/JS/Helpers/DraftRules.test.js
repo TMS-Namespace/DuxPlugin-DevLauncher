@@ -1,4 +1,5 @@
 // DraftRules.test.js - Check dependent-field clearing using a declaration that is not VS Code, to prove the rule is generic.
+// Rules: Runs in plain node; dependent fields are cleared only when they still hold defaults, and user-changed values are kept.
 const assert = require("node:assert/strict");
 const source = require("../../../Helpers/LoadSource.cjs");
 const rules = source("Helpers/DraftRules.js");
@@ -41,3 +42,34 @@ assert.equal(cleared.cache, "~/.tool-cache");
 // The alias is trimmed in one place, so validation, duplicate checks, and saving all see the same name.
 assert.equal(rules.normalize({ name: "  Work  ", binary: "/usr/bin/tool" }).name, "Work");
 assert.equal(rules.normalize({ binary: "/usr/bin/tool" }).name, "");
+
+// Switching IDE types loads the selected provider's defaults, keeps the ID, and avoids alias collisions.
+const zedDefaults = { installationType: "flatpak", type: "zed", name: "Zed", executable: "/usr/bin/flatpak", config: "/zed", extraArguments: [] };
+const vsDefaults = { installationType: "native", type: "vscode", name: "VS Code", executable: "code" };
+const switched = rules.switchProvider({ installationType: "native", id: "stable-id", type: "vscode", name: "VS Code 2", executable: "code", shared: "/old" }, vsDefaults, zedDefaults, [{ name: "Zed" }], -1);
+assert.equal(switched.id, "stable-id");
+assert.equal(switched.name, "Zed 2");
+assert.equal(switched.executable, "/usr/bin/flatpak");
+assert.equal(switched.shared, undefined);
+assert.equal(rules.switchProvider({ installationType: "native", id: "stable-id", type: "vscode", name: "Work" }, vsDefaults, zedDefaults, [], -1).name, "Work");
+
+// Selecting a packaging type changes the provider-declared paths and keeps the user's alias and arguments.
+const installationOptions = [{ type: "native", executable: "zed", config: "~/.local/share/zed" }, { type: "flatpak", executable: "/usr/bin/flatpak", config: "~/.var/app/dev.zed.Zed/data/zed" }];
+const installationDraft = { id: "stable-id", type: "zed", name: "My Zed", installationType: "native", executable: "custom", config: "/old", extraArguments: ["--new"] };
+const selectedInstallation = rules.switchInstallation(installationDraft, installationOptions, "flatpak");
+assert.equal(selectedInstallation.id, installationDraft.id);
+assert.equal(selectedInstallation.name, "My Zed");
+assert.equal(selectedInstallation.executable, "/usr/bin/flatpak");
+assert.equal(selectedInstallation.config, "~/.var/app/dev.zed.Zed/data/zed");
+assert.deepEqual(Array.from(selectedInstallation.extraArguments), ["--new"]);
+assert.equal(rules.switchInstallation(installationDraft, installationOptions, "snap"), installationDraft);
+
+// A custom icon survives an IDE type change; the other provider-specific fields take the new provider's defaults.
+const draftRulesForIcon = source("Helpers/DraftRules.js");
+const iconDraft = { id: "6a54e4b5-6173-46bf-8bd1-8f3960905460", type: "vscode", name: "Code", executable: "code", config: "/tmp/code", iconPath: "/tmp/custom.svg" };
+const iconVscodeDefaults = { type: "vscode", name: "VS Code", executable: "code", config: "/a" };
+const iconZedDefaults = { type: "zed", name: "Zed", executable: "zed", config: "/b" };
+const iconSwitchedDraft = draftRulesForIcon.switchProvider(iconDraft, iconVscodeDefaults, iconZedDefaults, [], -1);
+assert.equal(iconSwitchedDraft.iconPath, "/tmp/custom.svg", "a custom icon was dropped when the IDE type changed");
+assert.equal(iconSwitchedDraft.type, "zed");
+assert.equal(iconSwitchedDraft.config, "/b", "a provider-specific field kept the old provider's value");

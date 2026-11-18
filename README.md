@@ -5,8 +5,9 @@ A [Dux Shell](https://github.com/duxlabs-dev/dux-shell) launcher plugin that fin
 ## Main Features
 
 - **Repository discovery** - scan one or more configured folders for cloned Git repositories and worktrees.
-- **Recent IDE items** - show recent files, folders, and workspaces from each configured VS Code compatible installation.
-- **Multiple IDE installations** - add or remove each IDE in settings, then choose its executable and data folder with Dux's file browser.
+- **Recent IDE items** - show recent files, folders, and workspaces from configured IDE installations.
+- **Multiple IDE installations** - add or remove each IDE in settings, select a supported Native, Flatpak, or Snap installation, and choose its executable and data folder with Dux's file browser.
+- **Multiple IDE badges** - a shared result shows up to four reporting IDE icons, while keeping one deduplicated result.
 - **Open with any IDE** - type `@ProviderName` in the launcher search to choose which configured IDE opens a result.
 - **Result actions** - use Tab or the result context menu to open it with any configured IDE alias, use the system default, open the folder itself or a file's containing folder, copy its path, or view its sources and dates.
 - **Unified results** - one cached entry per path, kept ordered by date, then launch count. Searching filters that order; it never re-sorts. A launch from this plugin becomes the latest known use and the IDE that opened it is remembered.
@@ -19,15 +20,17 @@ A [Dux Shell](https://github.com/duxlabs-dev/dux-shell) launcher plugin that fin
 ## Requirements
 
 - `Dux Shell (DMS)` ≥ 2.0.0, running on `Qt` ≥ 6.7.
-- `find`, `timeout`, `env`, `stat`, `cat`, `which`, `test`, and `xdg-open` available in `$PATH`, plus Qt Quick LocalStorage. The plugin has no Python, Node.js, or `sqlite3` command runtime dependency.
+- `find`, `timeout`, `env`, `stat`, `cat`, `head`, `which`, `test`, and `xdg-open` available in `$PATH`, plus Qt Quick LocalStorage. The plugin has no Python, Node.js, or `sqlite3` command runtime dependency.
 - A configured IDE executable to open results in an IDE. Without one, results open through the desktop's default file association.
 - Optional: one or more local folders containing Git repositories.
 
 ## Data Providers
 
-Currently supported provider type:
+Currently supported provider types:
 
-- **VS Code compatible** - reads the IDE's recent files, folders, and workspaces. The default installation is named **VS Code**, with conventional user-data and shared-history locations. Add another installation in settings by choosing its executable and storage locations.
+- **Rider** - reads recent solutions and projects from `Rider*/options/recentSolutions.xml` under the configured JetBrains folder (normally `~/.config/JetBrains`). Native and Snap installations are supported.
+- **Zed** - reads workspace and editor history from `db/0-stable/db.sqlite` under the configured data folder. The default folder is `~/.var/app/dev.zed.Zed/data/zed` for Flatpak; the native default is `~/.local/share/zed`.
+- **VS Code compatible** - reads recent files, folders, and workspaces from the first usable source: `<shared folder>/sharedStorage/state.vscdb`, `<data folder>/User/globalStorage/state.vscdb`, or `<data folder>/User/globalStorage/storage.json`. The conventional folders are `~/.vscode-shared` and `~/.config/Code`.
 
 Each configured installation gets its own `ProviderHandler` facade. Scanned folders are a second, folder-only source: it runs `find` for Git repositories, cannot open items, and uses the same provider contract. The `ProvidersManager` registers the VS Code provider's `Api`, `Properties`, and `Constants` modules in `src/JS/Providers/VSCode/`, plus its `VSCodeRecents` reader in `src/QML/Providers/VSCode/`. The provider owns its history paths, SQLite and JSON reads, parsing, launch arguments, and validation. The rest of the plugin asks the facade for normalized recent items. A failed installation does not stop the others.
 
@@ -45,7 +48,7 @@ VS Code history stores order rather than an exact timestamp for each item. Its p
 
 Dux displays result actions in its Tab action row and context menu. In the current Dux launcher, Shift+Tab moves backward through actions. The **Details** action opens a stacked Dux modal with the full path, all discovered sources, the actual file modification time when Dux can read it, the provider history date, and the approximate recent-use time.
 
-IDE history items use the actual desktop icon associated with each configured executable as a badge over their file, folder, or workspace icon. The icon is matched through the system's desktop entries and cached by executable. IDE and Git badges sit on translucent rounded squares; their light or dark shade is chosen from the base SVG icon when its color is available. A workspace whose themed icon is unavailable uses a generic document icon beneath the badge. An executable without a matching desktop entry keeps its ordinary icon. A repository found in IDE history shows both its IDE badge and the Git branch marker.
+IDE history items use the actual desktop icon associated with each configured executable as a badge over their file, folder, or workspace icon. The icon is matched through the system's desktop entries and cached by executable. IDE and Git badges sit on translucent rounded squares; their light or dark shade is chosen from the base SVG icon when its color is available. A workspace whose themed icon is unavailable uses a generic document icon beneath the badge. An executable without a matching desktop entry keeps its ordinary icon. A repository found in IDE history shows its IDE badges and the Git branch marker. The Git marker uses the next free corner; when four IDE badges occupy all corners, the Git marker fits along the bottom edge.
 
 `FileMetadataService` verifies paths and caches file metadata. The separate `ResultItemIcon` component owns executable icon lookup, SVG loading, and badge composition, so launcher results need only request an icon descriptor.
 
@@ -62,6 +65,9 @@ IDE history items use the actual desktop icon associated with each configured ex
 ## Version History
 
 - v1.0.0 :
+    - Rider provider with Native and Snap launchers, versioned recent-solution discovery, and provider-specific validation. The launcher’s primary action is labeled Launch.
+    - Repository Git badges use a free icon corner at the same size as IDE badges.
+    - Provider-declared native, Flatpak, and Snap installation settings, and up to four source IDE badges per result.
     - Audited Unicode and special-character paths: NUL-delimited modification dates, preserved whitespace, locale-independent scan diagnostics, and native process/SQLite regression coverage.
     - Missing history paths containing non-ASCII names are removed correctly, including network-share paths; their database date no longer makes them appear recently used.
     - On-demand discovery and date checks publish one snapshot; idle redraws reuse cached results without starting more scans or metadata retries.

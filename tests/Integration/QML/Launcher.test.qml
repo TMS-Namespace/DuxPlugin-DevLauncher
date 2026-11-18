@@ -1,4 +1,5 @@
 // Launcher.test.qml - Exercise icons, details, item dates, and result ordering.
+// Rules: Runs in the offscreen shell; icons, details, date caps, and result order must match, and the first failed check prints T:FAIL and quits.
 import QtQuick
 import Quickshell
 import qs.Common as HostCommon
@@ -13,11 +14,13 @@ Item {
     readonly property var compositePreview: fixture.compositePreviewItem
     readonly property var repositoryPreview: fixture.repositoryPreviewItem
 
+    // Starts the timer that runs the main launcher checks (icons, details, missing items, and ordering).
     function startLaunchCheck() { launchCheck.start(); }
 
     // Each injected record belongs to the test source named by its provider. Every call adds to that source's answer,
     // so earlier injections stay, and then the cache is ordered as a scan would order it.
     property var injectedBySource: ({})
+    // Adds the given records to their sources' answers, re-publishes each source, and then commits the cache order.
     function injectRecords(records) {
         for (const record of records) {
             const sourceId = record.provider;
@@ -65,6 +68,16 @@ Item {
                 console.warn("T:FAIL themed file icon or executable badge: " + JSON.stringify({ file: fileIcon ? [fileIcon.comment, fileIcon.iconType, fileIcon.icon.slice(0, 30)] : null, requests: fileMetadata.requests, provider: providerIcon, live: root.liveRefreshNotifications, repo: repositoryIcon ? repositoryIcon.icon.slice(0, 30) : null }));
                 Qt.quit();
                 return;
+            }
+            root.settingsPage.showBadgesToggle.toggled(false);
+            const plainFile = root.launcher.getItems("example")[0];
+            const plainRepository = root.launcher.getItems("sample")[0];
+            if (root.settings.showBadges !== false || root.settingsPage.controller.showBadges || plainFile.icon.startsWith("svg:data:") || plainRepository.icon.startsWith("svg:data:")) {
+                console.warn("T:FAIL disabling result badges"); Qt.quit(); return;
+            }
+            root.settingsPage.showBadgesToggle.toggled(true);
+            if (!root.settingsPage.controller.showBadges || root.settings.showBadges !== true || root.launcher.getItems("example")[0].icon !== fileIcon.icon) {
+                console.warn("T:FAIL enabling result badges"); Qt.quit(); return;
             }
             compositePreview.source = fileIcon.icon.slice(4);
             repositoryPreview.source = repositoryIcon.icon.slice(4);

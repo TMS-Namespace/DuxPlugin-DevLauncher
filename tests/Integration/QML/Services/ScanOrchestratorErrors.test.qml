@@ -1,4 +1,5 @@
 // ScanOrchestratorErrors.test.qml - Check that IDE scan errors are published for settings and never toasted.
+// Rules: Runs in the offscreen shell; IDE scan errors must reach settings without a toast, and a failed read must keep its cached items.
 import QtQuick
 import qs.Services as DuxServices
 import "../../../../src/QML/Services" as Services
@@ -15,7 +16,7 @@ QtObject {
         const toastsBefore = DuxServices.ToastService.messages.length;
         orchestrator.providerErrors = [{ providerId: fixture.firstIdentifier, message: "IDE history read did not finish." }];
         orchestrator.publish();
-        const published = pluginService.getGlobalVar("devLauncher", "providerErrors", []);
+        const published = Services.ScanState.providerErrors;
         const toastsAfter = DuxServices.ToastService.messages.length;
         orchestrator.destroy();
         const shown = published.some(function(entry) { return entry.providerId === fixture.firstIdentifier && entry.message === "IDE history read did not finish."; });
@@ -33,5 +34,18 @@ QtObject {
         cache.reconcileSource(sourceId, "Failing source", [], true, Date.now());
         const dropped = cache.entries["/tmp/kept.js"] === undefined;
         return fixture.expect(kept && dropped, "a failed read changed the cache, or a successful empty read kept items");
+    }
+
+    // A scan keeps every configured source in its list for the next scan's removal check, even while the sources are still being asked.
+    function checkKnownSourcesSurviveScan() {
+        const component = Qt.createComponent("file://" + fixture.pluginRoot + "/src/QML/Services/ScanOrchestrator.qml");
+        if (!fixture.expect(component.status === Component.Ready, "orchestrator load " + component.errorString())) return false;
+        const orchestrator = component.createObject(null, { pluginService: pluginService });
+        orchestrator.refresh();
+        const knownSources = orchestrator.knownSourceIds.slice();
+        // Every source the scan loaded is a configured source, so the known list must match the loaded handlers.
+        const configuredCount = Object.keys(Services.ProvidersManager.handlers).length;
+        orchestrator.destroy();
+        return fixture.expect(knownSources.length > 0 && knownSources.length === configuredCount, "a scan lost configured sources from its list of known sources: " + JSON.stringify(knownSources));
     }
 }

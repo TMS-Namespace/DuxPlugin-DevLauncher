@@ -1,5 +1,6 @@
 // DraftRules.js - Apply one edit to an IDE draft using only the provider's declared field rules.
 .pragma library
+// Rules: Pure draft edits: returns new objects and never changes the draft it receives; no QML types or logging.
 
 // Return the draft with its alias trimmed. Validation, duplicate checks, and saving all use this one form.
 function normalize(draft) {
@@ -28,5 +29,29 @@ function applyEdit(draft, defaults, descriptor, field, value) {
             if (draft[dependent] === "" && defaults[dependent] !== undefined) next[dependent] = defaults[dependent];
         }
     }
+    return next;
+}
+
+// Switch providers with their own defaults while preserving the installation identity, any custom alias, and any custom icon.
+function switchProvider(draft, previousDefaults, nextDefaults, providers, editIndex) {
+    if (!nextDefaults.type || nextDefaults.type === draft.type) return draft;
+    const previousName = String(previousDefaults.name || "");
+    const currentName = String(draft.name || "");
+    const generatedName = currentName === previousName || (currentName.startsWith(previousName + " ") && /^\d+$/.test(currentName.slice(previousName.length + 1)));
+    let name = generatedName || !currentName ? nextDefaults.name : currentName;
+    const baseName = name;
+    let suffix = 2;
+    while ((providers || []).some(function(provider, index) { return index !== editIndex && provider.name === name; })) name = baseName + " " + suffix++;
+    // A custom icon is the user's own choice, so it survives the change; every other provider-specific field takes the new defaults.
+    return Object.assign({}, nextDefaults, { id: draft.id, name: name }, draft.iconPath ? { iconPath: draft.iconPath } : {});
+}
+
+// Apply the selected provider-declared installation defaults without changing the installation ID or alias.
+function switchInstallation(draft, installations, selected) {
+    const choice = (installations || []).find(function(installation) { return installation.type === selected; });
+    if (!choice || draft.installationType === selected) return draft;
+    const next = Object.assign({}, draft, { installationType: selected, executable: choice.executable });
+    if (choice.config !== undefined) next.config = choice.config;
+    if (choice.shared !== undefined) next.shared = choice.shared;
     return next;
 }

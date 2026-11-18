@@ -1,4 +1,5 @@
 // LauncherLaunch.test.qml - Check missing IDE feedback without recording usage.
+// Rules: Runs in the offscreen shell; a launch with a missing IDE must show feedback and record no usage, and each alias must open its own installation.
 import QtQuick
 import qs.Services as DuxServices
 import "../../../src/QML/Services" as Services
@@ -28,11 +29,13 @@ QtObject {
         const launched = [];
         try {
             root.settings.providers = [
-                { id: root.firstIdentifier, type: "vscode", name: "Office IDE" },
-                { id: root.secondIdentifier, type: "vscode", name: "Personal IDE" }
+                { installationType: "native", id: root.firstIdentifier, type: "vscode", name: "Office IDE" },
+                { installationType: "native", id: root.secondIdentifier, type: "vscode", name: "Personal IDE" }
             ];
             const handlers = {};
+            // Stub: records a launch of the first installation with the given path.
             handlers[root.firstIdentifier] = { launch: function(path) { launched.push({ id: root.firstIdentifier, path: path }); } };
+            // Stub: records a launch of the second installation with the given path.
             handlers[root.secondIdentifier] = { launch: function(path) { launched.push({ id: root.secondIdentifier, path: path }); } };
             Services.ProvidersManager.handlers = handlers;
             const item = { path: "/tmp/alias-action", kind: "folder" };

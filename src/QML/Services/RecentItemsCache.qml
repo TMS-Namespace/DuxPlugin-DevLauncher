@@ -1,15 +1,18 @@
 // RecentItemsCache.qml - The cache of recent items, shared by the scan and the launcher: one entry per path, kept ordered for searching.
-// The scan changes the entries and orders them once when it finishes; a search only reads the ordered list.
+// Rules: Only the scan and a recorded launch change the entries, and a search reads the ordered list without sorting it.
 pragma Singleton
 import QtQml
 import "../../JS/Helpers/Config.js" as Config
 import "../../JS/Helpers/LauncherRules.js" as LauncherRules
 import "../../JS/Helpers/RecentCacheRules.js" as RecentCacheRules
+import "../../JS/Helpers/ResultRules.js" as ResultRules
 
+// The singleton cache of recent items: one entry per path, plus the sorted list that searches read.
 QtObject {
     id: root
     // The entries by path, changed in place. The ordered list is rebuilt only by commit().
     property var entries: ({})
+    // The sorted, bounded list that the launcher searches; it is replaced only by commit().
     property var ordered: []
     // The saved launch counts, loaded once when the plugin starts. This map is the only stored source of launch activity.
     property var usage: ({})
@@ -36,10 +39,15 @@ QtObject {
         RecentCacheRules.dropSources(entries, sourceIds, now);
     }
 
-    // Make the entries show the saved launch activity, order them once, and tell the launcher that the list changed.
+    // The number of entries the cache may keep: a multiple of the results the user chose, read at each commit.
+    function bound() {
+        return ResultRules.limit(DataStorage.load("resultsLimit", Config.defaultResultsLimit)) * Config.cachedResultsMultiplier;
+    }
+
+    // Make the entries show the saved launch activity, order them once, drop those beyond the bound, and tell the launcher that the list changed.
     function commit() {
         RecentCacheRules.syncUsage(entries, usage, Date.now());
-        ordered = RecentCacheRules.sortEntries(entries);
+        ordered = RecentCacheRules.orderAndBound(entries, bound());
         sortCount++;
         changed();
     }

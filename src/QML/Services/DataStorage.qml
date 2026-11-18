@@ -1,13 +1,16 @@
 // DataStorage.qml - The only plugin object that reads and writes saved Dux plugin settings.
+// Rules: This is the only object that reads or writes saved plugin settings; damaged values are backed up before a save can overwrite them.
 import "../../JS/Helpers/Config.js" as Config
-import "../../JS/Helpers/ConfigurationRules.js" as ConfigurationRules
+import "../../JS/Storage/SettingsMigration.js" as SettingsMigration
 import "../../JS/Helpers/SettingsIntegrity.js" as SettingsIntegrity
 import QtQml
 import qs.Common
 pragma Singleton
 
+// The one door to saved plugin settings: loads apply format migration and damage reports, and saves are checked by reading them back.
 QtObject {
     property var pluginService: null
+    // The keys whose damage was already reported, so each key is reported once until it is saved again.
     property var reportedDamage: ({})
     // Set once the folders saved in the earliest format have been converted to folder entries.
     property bool foldersMigrated: false
@@ -30,7 +33,7 @@ QtObject {
             foldersMigrated = true;
             return;
         }
-        foldersMigrated = save("folders", ConfigurationRules.migratedFolders(value, typeId));
+        foldersMigrated = save("folders", SettingsMigration.folders(value, typeId));
     }
 
     // Return the declared default until Dux attaches its settings service.
@@ -41,7 +44,8 @@ QtObject {
             reportedDamage[key] = true;
             ErrorHandler.report("storage", "Some saved " + key + " settings are invalid. A copy will be kept if you change them.");
         }
-        return value;
+        // Older entries without an installation type get their provider's default here, so no reader ever sees the old format.
+        return SettingsMigration.installations(key, value, function(typeId) { return ProvidersManager.defaultsFor(typeId).installationType; });
     }
 
     // Preserve the original value before replacing settings that normalization would discard.
@@ -65,7 +69,8 @@ QtObject {
             }
             SettingsData.setPluginSetting(Config.pluginId, key, value);
             if (JSON.stringify(SettingsData.getPluginSetting(Config.pluginId, key, null)) !== JSON.stringify(value)) return false;
-            if (key !== "usage") pluginService.setGlobalVar(Config.pluginId, "settingsRevision", Date.now());
+            // Usage counts and the group layout do not change scan or launcher results, so they announce no settings revision.
+            if (key !== "usage" && key !== "expandedSettings") ScanState.announceSettingsChange(Date.now());
             delete reportedDamage[key];
             return true;
         } catch (caughtError) {

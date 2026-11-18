@@ -1,4 +1,5 @@
 // SettingsPage.test.qml - Exercise settings controls, grouped layout, and edit panel sizing.
+// Rules: Runs in the offscreen shell; saved settings must reload unchanged, invalid input must be refused with its message, and the first failed check prints T:FAIL and quits.
 import QtQuick
 import Quickshell
 import qs.Common as HostCommon
@@ -25,6 +26,11 @@ Item {
         }
         if (root.settingsPage.controller.trigger !== "`" || root.settingsPage.searchPathsToggle.checked || root.settingsPage.controller.searchPaths) {
             console.warn("T:FAIL default trigger or search scope");
+            Qt.quit();
+            return;
+        }
+        if (!root.settingsPage.controller.showBadges || !root.settingsPage.showBadgesToggle.checked) {
+            console.warn("T:FAIL badges should be enabled by default");
             Qt.quit();
             return;
         }
@@ -206,6 +212,52 @@ Item {
                 console.warn("T:FAIL IDE editor card layout or resolved executable " + page.controller.validationError);
                 Qt.quit();
                 return;
+            }
+            const installationId = page.controller.draft.id;
+            editor.editIconButton.clicked();
+            if (!page.iconPicker.opened || !page.iconPicker.filters.includes("*.svg")) {
+                console.warn("T:FAIL IDE icon chooser"); Qt.quit(); return;
+            }
+            const selectedIcon = "/tmp/IDE 日本語 & icon.svg";
+            page.iconPicker.accepted([selectedIcon]);
+            if (page.controller.draft.iconPath !== selectedIcon || editor.iconRenderer.iconValue !== "image:" + selectedIcon) {
+                console.warn("T:FAIL IDE icon preview override"); Qt.quit(); return;
+            }
+            editor.resetIconButton.clicked();
+            if (page.controller.draft.iconPath !== "") {
+                console.warn("T:FAIL IDE icon reset"); Qt.quit(); return;
+            }
+            page.controller.edit("type", "zed");
+            if (page.controller.draft.id !== installationId || page.controller.draft.name !== "Zed" || page.controller.draft.executable !== "/usr/bin/flatpak" || page.controller.draft.config !== "~/.var/app/dev.zed.Zed/data/zed" || editor.sharedFolderRow.visible) {
+                console.warn("T:FAIL changing IDE type did not load Zed settings");
+                Qt.quit();
+                return;
+            }
+            if (editor.installationDropdown.currentValue !== "flatpak" || editor.executableRow.label !== "Flatpak executable path") {
+                console.warn("T:FAIL Zed Flatpak installation UI"); Qt.quit(); return;
+            }
+            page.controller.edit("installationType", "native");
+            if (page.controller.draft.installationType !== "native" || page.controller.draft.executable !== "zed" || page.controller.draft.config !== "~/.local/share/zed" || editor.installationDropdown.currentValue !== "native") {
+                console.warn("T:FAIL switching to native Zed defaults"); Qt.quit(); return;
+            }
+            page.controller.edit("installationType", "flatpak");
+            if (page.controller.draft.executable !== "/usr/bin/flatpak" || page.controller.draft.config !== "~/.var/app/dev.zed.Zed/data/zed") {
+                console.warn("T:FAIL switching back to Flatpak Zed defaults"); Qt.quit(); return;
+            }
+            if (!editor.installationDropdown.optionValues.includes("snap")) {
+                console.warn("T:FAIL Snap is missing from Zed installation choices"); Qt.quit(); return;
+            }
+            page.controller.edit("installationType", "snap");
+            if (page.controller.draft.executable !== "/usr/bin/snap" || page.controller.draft.config !== "~/.local/share/zed" || editor.executableRow.label !== "Snap executable path") {
+                console.warn("T:FAIL selecting Zed Snap defaults"); Qt.quit(); return;
+            }
+            page.controller.edit("type", "rider");
+            if (page.controller.draft.id !== installationId || page.controller.draft.name !== "Rider" || page.controller.draft.executable !== "rider" || editor.sharedFolderRow.visible || editor.installationDropdown.optionValues.includes("flatpak") || !editor.installationDropdown.optionValues.includes("snap")) {
+                console.warn("T:FAIL Rider provider settings"); Qt.quit(); return;
+            }
+            page.controller.edit("installationType", "snap");
+            if (page.controller.draft.executable !== "/usr/bin/snap" || page.controller.draft.config !== "~/.config/JetBrains") {
+                console.warn("T:FAIL Rider Snap settings"); Qt.quit(); return;
             }
             editor.cancelButton.clicked();
             ideCollapsedCheck.start();

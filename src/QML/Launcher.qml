@@ -1,4 +1,5 @@
 // Launcher.qml - Search the ordered recent-items cache and launch the chosen item in the IDE that should open it.
+// Rules: Searches read only the ordered cache, and a launch is recorded only after its launch call returns without an error.
 import "../JS/Helpers/Config.js" as Config
 import "../JS/Helpers/LauncherRules.js" as Rules
 import "../JS/Helpers/ConfigurationRules.js" as ConfigurationRules
@@ -11,11 +12,13 @@ import QtQuick
 import Quickshell
 import qs.Common
 
+// The launcher root: it answers searches from the cache and runs the chosen action, launch or details.
 Item {
     id: root
 
     property var pluginService: null
     property string trigger: Config.trigger
+    // The time of the last refresh request, so the request is not repeated within the refresh interval.
     property double lastRequest: 0
     // Dux also calls getItems for redraws. An unchanged query must only read the cache.
     property var lastQuery: null
@@ -42,21 +45,22 @@ Item {
         const searchStarts = !query || !lastQuery;
         lastQuery = query;
         const now = Date.now();
-        const scannedAt = pluginService.getGlobalVar(Config.pluginId, "scannedAt", 0);
+        const scannedAt = ScanState.scannedAt;
         if (searchStarts && now - scannedAt > Config.refreshMilliseconds && now - lastRequest > Config.refreshMilliseconds) {
             lastRequest = now;
-            pluginService.setGlobalVar(Config.pluginId, "refreshRequest", lastRequest);
+            ScanState.requestRefresh(lastRequest);
         }
         const providers = availableProviders();
         const defaultProvider = ConfigurationRules.defaultProvider(DataStorage.load("defaultProvider", ProvidersManager.defaultProviderId()), providers);
         const resultsLimit = ResultRules.limit(DataStorage.load("resultsLimit", Config.defaultResultsLimit));
         const searchPaths = DataStorage.load("searchPaths", Config.searchPaths) === true;
+        const showBadges = DataStorage.load("showBadges", Config.showBadges) !== false;
         const cutoff = AgeFilterRules.cutoff(AgeFilterRules.normalize(DataStorage.load("ageFilter", Config.defaultAgeFilter)), now);
         const found = Rules.items(RecentItemsCache.ordered, query, { limit: resultsLimit, providers: providers, defaultProvider: defaultProvider, cutoff: cutoff, searchPaths: searchPaths, now: now });
         FileMetadataService.request(found, queryChanged);
         return found.map(function(item) {
             const description = item.comment + (item.ageLabel ? " · " + item.ageLabel : "");
-            return Object.assign({}, item, { comment: description }, ResultItemIcon.iconFor(item));
+            return Object.assign({}, item, { comment: description }, ResultItemIcon.iconFor(item, showBadges));
         });
     }
 
@@ -117,6 +121,7 @@ Item {
         itemsChanged();
     }
 
+    // Attaches the new plugin service to storage and reloads the trigger from saved settings.
     onPluginServiceChanged: {
         DataStorage.configure(pluginService);
         if (pluginService)
@@ -124,7 +129,9 @@ Item {
 
     }
 
+    // Reloads the trigger when the plugin's saved data changes.
     Connections {
+        // Reloads the trigger when this plugin's saved data changes, and ignores other plugins.
         function onPluginDataChanged(changedPluginId) {
             if (changedPluginId === Config.pluginId)
                 root.trigger = DataStorage.load("trigger", Config.trigger);
@@ -135,11 +142,10 @@ Item {
         enabled: root.pluginService !== null
     }
 
+    // Reloads the trigger, forgets the last query, and refreshes the launcher whenever a setting affecting results is saved.
     Connections {
-        target: root.pluginService
-        enabled: root.pluginService !== null
-        function onGlobalVarChanged(changedPluginId, name) {
-            if (changedPluginId !== Config.pluginId || name !== "settingsRevision") return;
+        target: ScanState
+        function onSettingsChanged() {
             root.trigger = DataStorage.load("trigger", Config.trigger);
             root.lastQuery = null;
             SettingsData.launcherPluginVisibilityChanged();
@@ -149,16 +155,21 @@ Item {
     // The scan published new items: an open launcher searches again.
     Connections {
         target: RecentItemsCache
+        // Asks the launcher to search again when the cache changes.
         function onChanged() { SettingsData.launcherPluginVisibilityChanged(); }
     }
 
+    // Asks the launcher to search again when file metadata changes.
     Connections {
         target: FileMetadataService
+        // Asks the launcher to search again when file metadata changes.
         function onMetadataChanged() { SettingsData.launcherPluginVisibilityChanged(); }
     }
 
+    // Asks the launcher to search again when icons finish loading.
     Connections {
         target: ResultItemIcon
+        // Asks the launcher to search again when icons change.
         function onIconsChanged() { SettingsData.launcherPluginVisibilityChanged(); }
     }
 

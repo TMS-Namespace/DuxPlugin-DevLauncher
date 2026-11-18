@@ -1,4 +1,5 @@
 // LauncherRules.test.js - Check that the launcher filters ordered entries, applies the age cutoff and limit, and presents them.
+// Rules: Runs in plain node; items keep their cached order and honor the age cutoff and limit, and the host transformer check runs only when the host source exists.
 const assert = require("node:assert/strict");
 const source = require("../../../Helpers/LoadSource.cjs");
 const { codeId, codiumId, configured } = require("../../../Helpers/ProviderFixture.cjs");
@@ -53,3 +54,20 @@ const changedSource = entry("/tmp/changed", now - day, 0, [{ id: codeId, name: "
 const unchangedSource = entry("/tmp/unchanged", now - 2 * day, 0, [{ id: codeId, name: "Code", openedAt: now - 2 * day }]);
 const stableDates = rules.items([changedSource, unchangedSource], "", { limit: 10, providers: configured, defaultProvider: codeId, cutoff: 0, searchPaths: false, now: now });
 assert.deepEqual(Array.from(stableDates, item => item.ageLabel), ["1d ago", "2d ago"]);
+
+// A deduplicated path retains every reporting IDE, excluding folder sources and unavailable IDEs.
+const sharedEntry = entry("/tmp/shared.js", now, 0, [codeSource, { id: "folder", name: "Folder", openedAt: now }, codiumSource, { id: "unavailable", name: "Unavailable", openedAt: now }]);
+const sharedItem = rules.items([sharedEntry], "shared", { limit: 10, providers: configured, defaultProvider: codeId, cutoff: 0, searchPaths: false, now })[0];
+assert.deepEqual(Array.from(sharedItem.sourceProviders), [codeId, codiumId]);
+
+// Dux's actual plugin transformer preserves the supplied primary action and executes the same item.
+assert.equal(found[0].primaryAction.name, "Launch");
+assert.equal(found[0].primaryAction.action, "execute");
+const hostTransformer = require("node:path").join(process.env.DMS_SOURCE_ROOT || "/usr/share/quickshell/dms", "Modals/DLauncherV2/ItemTransformers.js");
+if (require("node:fs").existsSync(hostTransformer)) {
+    const transform = require("../../../../audit/LoadQmlJs.js").load(hostTransformer);
+    const transformed = transform.transformPluginItem(found[0], "devLauncher", "Select");
+    assert.equal(transformed.primaryAction.name, "Launch");
+    assert.equal(transformed.primaryAction.action, "execute");
+    assert.equal(transformed.data.path, found[0].path);
+}

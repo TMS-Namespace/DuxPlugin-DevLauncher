@@ -1,10 +1,14 @@
 // Config.js - User-facing defaults and fixed resource limits.
 .pragma library
+// Rules: Constants only: no logic, no QML types, no logging; defaults and limits are declared here.
 var pluginId = "devLauncher";
 var trigger = "`";
 var folders = [];
 var defaultResultsLimit = 100;
+// The cache keeps this many times the number of results the user chose to see, so searches have room to filter.
+var cachedResultsMultiplier = 10;
 var searchPaths = false;
+var showBadges = true;
 var defaultAgeFilter = Object.freeze({ value: 3, unit: "months" });
 var minAgeFilterValue = 1;
 var maxAgeFilterValue = 9999;
@@ -47,3 +51,10 @@ var missingPathRetryMilliseconds = 60000;
 var refreshMilliseconds = 10000;
 var isDevMode = false;
 var errorNotificationInterval = 30000;
+
+// Maximum number of IDE sources shown over one result icon.
+var maxSourceBadges = 4;
+var sourceBadgeSize = 28;
+var sourceBadgeInset = 2;
+var sourceBadgePadding = 1;
+var sourceBadgeOpacity = 0.6;

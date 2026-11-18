@@ -1,5 +1,6 @@
 // SettingsIntegrity.js - Detect damaged settings before normalizing or replacing them.
 .pragma library
+// Rules: Pure damage detection and backup shaping: keeps every damaged value and never discards one; no QML types or logging.
 .import "ConfigurationRules.js" as ConfigurationRules
 .import "AgeFilterRules.js" as AgeFilterRules
 .import "ResultRules.js" as ResultRules
@@ -22,7 +23,7 @@ function damaged(key, value) {
     if (key === "resultsLimit") return !ResultRules.valid(value);
     if (key === "repositoryDepth") return typeof value !== "number" || !Number.isInteger(value) || value < Config.minRepositoryDepth || value > Config.maxRepositoryDepth;
     if (key === "trigger") return TriggerRules.error(value, Config.pluginId, {}, {}) !== "";
-    if (key === "searchPaths") return typeof value !== "boolean";
+    if (key === "searchPaths" || key === "showBadges") return typeof value !== "boolean";
     if (key === "defaultProvider") return typeof value !== "string";
     if (key === "usage") {
         if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).length > Config.maxUsageEntries) return true;

@@ -1,10 +1,11 @@
 // CheckProviders.js - Verify every registered provider implements the common contract.
+// Rules: Audit only; it loads provider modules without starting the app, and any contract mismatch throws an assertion error.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { load } = require("./LoadQmlJs.js");
 
-// Check inheritance, method signatures, and complete declaration properties.
+// Load every provider folder and check its API, properties, entry point, and descriptor against the common contract, throwing on the first mismatch.
 function check(root = path.resolve(__dirname, "../src/JS")) {
     const cache = new Map();
     const apiBase = load(path.join(root, "Contracts/ProviderApi.js"), cache);
@@ -37,6 +38,7 @@ function check(root = path.resolve(__dirname, "../src/JS")) {
             assert.equal(instance[method].length, arity);
         }
         assert.equal(rules.assertDeclaration(declared, instance), true);
+        assert.equal(rules.assertInstallation(declared, entryPoint.descriptor()), true);
         assert.throws(() => rules.assertDeclaration(Object.assign({}, declared, { unknownField: true }), instance));
     }
 }

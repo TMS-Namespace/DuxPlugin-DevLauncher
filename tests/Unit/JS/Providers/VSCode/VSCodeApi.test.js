@@ -1,10 +1,11 @@
 // VSCodeApi.test.js - Check VS Code sources, parsing, arguments, and history order.
+// Rules: Runs in plain node; VS Code arguments and Flatpak or snap commands must follow the declared installation type, and history must keep its order.
 const assert = require("node:assert/strict");
 const source = require("../../../../Helpers/LoadSource.cjs");
 const { codeId, api, properties, records } = require("../../../../Helpers/ProviderFixture.cjs");
 assert.equal(api.validateArguments("1.99.0", "", properties), true);
 assert.throws(() => api.validateArguments("1.99.0", "Warning: 'bad-switch' is not in the list of known options", properties));
-const missingSwitchValue = source("Providers/VSCode/VSCodeProperties.js").create({ id: codeId, name: "Code", config: "~/.config/Code", executable: "code", extraArguments: ["--profile"] });
+const missingSwitchValue = source("Providers/VSCode/VSCodeProperties.js").create({ installationType: "native", id: codeId, name: "Code", config: "~/.config/Code", executable: "code", extraArguments: ["--profile"] });
 assert.throws(() => api.validateArguments("1.99.0", "", missingSwitchValue));
 assert.ok(api.sources(properties).length >= 2);
 assert.deepEqual(Array.from(api.launchArgs("/tmp/project", properties, "/home/test")), ["code", "--reuse-window", "--profile", "Work", "/tmp/project"]);
@@ -24,7 +25,7 @@ const defaultApi = api;
 const defaultProperties = source("Providers/VSCode/VSCodeProperties.js").create(defaultConfiguration);
 assert.equal(defaultProperties.settings.configDirectory, "~/.config/Code");
 assert.equal(defaultProperties.settings.sharedStorageDirectory, "~/.vscode-shared");
-assert.throws(() => source("Providers/VSCode/VSCodeProperties.js").create({ name: "Bad", config: "relative", executable: "code" }));
+assert.throws(() => source("Providers/VSCode/VSCodeProperties.js").create({ installationType: "native", name: "Bad", config: "relative", executable: "code" }));
 assert.equal(defaultApi.sources(defaultProperties)[0].path, "~/.vscode-shared/sharedStorage/state.vscdb");
 
 // Real file-URL encoding preserves Unicode and legal punctuation through parsing and launch arguments.
@@ -34,3 +35,20 @@ for (const filename of ["/tmp/Värmland 日本語 العربية 😀", "/tmp/qu
     assert.equal(parsed[0].path, filename);
     assert.equal(api.launchArgs(filename, properties, "/home/test").at(-1), filename);
 }
+
+// Flatpak commands use the application ID and preserve additional arguments as separate values.
+const vscodeProperties = source("Providers/VSCode/VSCodeProperties.js");
+const flatpak = vscodeProperties.create({ id: codeId, name: "Flatpak", installationType: "flatpak", executable: "/usr/bin/flatpak", config: "/tmp/data", shared: "", extraArguments: ["--reuse-window"] });
+assert.deepEqual(Array.from(api.launchArgs("/tmp/project", flatpak, "/home/test")), ["/usr/bin/flatpak", "run", "com.visualstudio.code", "--reuse-window", "/tmp/project"]);
+assert.deepEqual(Array.from(api.validationArgs(flatpak, "/home/test")), ["/usr/bin/flatpak", "info", "--show-ref", "com.visualstudio.code"]);
+assert.equal(api.validateExecutable("app/com.visualstudio.code/x86_64/stable", flatpak), true);
+assert.throws(() => api.validateExecutable("app/dev.zed.Zed/x86_64/stable", flatpak));
+const snap = vscodeProperties.create({ id: codeId, name: "Snap", installationType: "snap", executable: "/usr/bin/snap", config: "/tmp/data", shared: "", extraArguments: ["--reuse-window"] });
+assert.deepEqual(Array.from(api.launchArgs("/tmp/my project", snap, "/home/test")), ["/usr/bin/snap", "run", "code", "--reuse-window", "/tmp/my project"]);
+assert.deepEqual(Array.from(api.validationArgs(snap, "/home/test")), ["/usr/bin/snap", "list", "code"]);
+assert.equal(api.validateExecutable("Name  Version  Rev  Tracking\ncode  1.99  123  latest/stable\n", snap), true);
+assert.throws(() => api.validateExecutable("Name  Version\nother  1.0", snap));
+assert.equal(source("Providers/VSCode/VSCodeDescriptor.js").create().installations.find(option => option.type === "snap").config, "~/.config/Code");
+
+const flatpakDefaults = vscodeProperties.create({ id: codeId, name: "Flatpak", installationType: "flatpak", executable: "/usr/bin/flatpak", config: "~/.var/app/com.visualstudio.code/config/Code", shared: "~/.var/app/com.visualstudio.code/.vscode-shared", extraArguments: [] });
+assert.equal(api.validationPaths(flatpakDefaults, "/home/test", "").find(target => target.field === "shared" && target.kind === "directory").optional, true);
