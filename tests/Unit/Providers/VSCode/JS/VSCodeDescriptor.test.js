@@ -2,13 +2,16 @@
 const assert = require("node:assert/strict");
 const source = require("../../../../Helpers/LoadSource.cjs");
 const descriptor = source("Providers/VSCode/JS/VSCodeDescriptor.js").create();
-const field = key => descriptor.fields.find(declared => declared.key === key);
+const field = (key) => descriptor.fields.find((declared) => declared.key === key);
 
 assert.equal(descriptor.typeId, "vscode");
 assert.equal(descriptor.name, "VS Code");
 for (const key of ["executable", "config", "shared"]) {
     assert.ok(field(key), key + " must be declared");
-    assert.ok(field(key).label && field(key).description && field(key).placeholder && field(key).chooserTitle, key + " needs its editor text");
+    assert.ok(
+        field(key).label && field(key).description && field(key).placeholder && field(key).chooserTitle,
+        key + " needs its editor text"
+    );
 }
 assert.equal(field("executable").kind, "executable");
 assert.equal(field("config").kind, "directory");

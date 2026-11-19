@@ -6,6 +6,7 @@ import QtQml
 // The shared scan state. Each value is kept here and each change is announced with a signal, so no surface needs Dux global memory.
 QtObject {
     id: root
+
     // When the last scan finished, in milliseconds since the epoch; zero until a scan finishes or after its time is invalidated.
     property double scannedAt: 0
     // The source errors published by the last scan, read by the settings page.
@@ -45,4 +46,5 @@ QtObject {
     function invalidateScan() {
         scannedAt = 0;
     }
+
 }

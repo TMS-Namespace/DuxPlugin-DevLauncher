@@ -14,9 +14,15 @@ var MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * HOURS_PER_DAY;
 function normalize(value) {
     const candidate = value && typeof value === "object" && !Array.isArray(value) ? value : {};
     const rawAmount = candidate.value;
-    const amount = (typeof rawAmount === "number" || (typeof rawAmount === "string" && /^\d+$/.test(rawAmount))) ? Number(rawAmount) : NaN;
+    const amount =
+        typeof rawAmount === "number" || (typeof rawAmount === "string" && /^\d+$/.test(rawAmount))
+            ? Number(rawAmount)
+            : NaN;
     return {
-        value: Number.isInteger(amount) && amount >= Config.minAgeFilterValue && amount <= Config.maxAgeFilterValue ? amount : Config.defaultAgeFilter.value,
+        value:
+            Number.isInteger(amount) && amount >= Config.minAgeFilterValue && amount <= Config.maxAgeFilterValue
+                ? amount
+                : Config.defaultAgeFilter.value,
         unit: AgeUnit.isValid(candidate.unit) ? candidate.unit : Config.defaultAgeFilter.unit
     };
 }
@@ -47,20 +53,28 @@ function itemAge(record, now) {
     const launched = Number(record.launchedAt);
     const hasModified = Number.isFinite(modified) && modified > 0;
     const hasOpened = Number.isFinite(opened) && opened > 0;
-    const historyDate = hasModified && hasOpened ? Math.min(modified, opened) : hasModified ? modified : hasOpened ? opened : 0;
+    const historyDate =
+        hasModified && hasOpened ? Math.min(modified, opened) : hasModified ? modified : hasOpened ? opened : 0;
     const date = Math.max(historyDate, Number.isFinite(launched) && launched > 0 ? launched : 0);
     if (date <= 0) return { date: 0, label: "" };
 
     const elapsed = Math.max(0, Number(now) - date);
     if (elapsed < MILLISECONDS_PER_MINUTE) return { date: date, label: "just now" };
-    if (elapsed < MILLISECONDS_PER_HOUR) return { date: date, label: Math.floor(elapsed / MILLISECONDS_PER_MINUTE) + "m ago" };
-    if (elapsed < MILLISECONDS_PER_DAY) return { date: date, label: Math.floor(elapsed / MILLISECONDS_PER_HOUR) + "h ago" };
-    if (elapsed < MILLISECONDS_PER_DAY * DAYS_PER_WEEK) return { date: date, label: Math.floor(elapsed / MILLISECONDS_PER_DAY) + "d ago" };
-    if (date > monthsBefore(now, 1)) return { date: date, label: Math.floor(elapsed / (MILLISECONDS_PER_DAY * DAYS_PER_WEEK)) + "w ago" };
+    if (elapsed < MILLISECONDS_PER_HOUR)
+        return { date: date, label: Math.floor(elapsed / MILLISECONDS_PER_MINUTE) + "m ago" };
+    if (elapsed < MILLISECONDS_PER_DAY)
+        return { date: date, label: Math.floor(elapsed / MILLISECONDS_PER_HOUR) + "h ago" };
+    if (elapsed < MILLISECONDS_PER_DAY * DAYS_PER_WEEK)
+        return { date: date, label: Math.floor(elapsed / MILLISECONDS_PER_DAY) + "d ago" };
+    if (date > monthsBefore(now, 1))
+        return { date: date, label: Math.floor(elapsed / (MILLISECONDS_PER_DAY * DAYS_PER_WEEK)) + "w ago" };
 
     const current = new Date(now);
     const previous = new Date(date);
-    let months = (current.getUTCFullYear() - previous.getUTCFullYear()) * MONTHS_PER_YEAR + current.getUTCMonth() - previous.getUTCMonth();
+    let months =
+        (current.getUTCFullYear() - previous.getUTCFullYear()) * MONTHS_PER_YEAR +
+        current.getUTCMonth() -
+        previous.getUTCMonth();
     if (months > 0 && monthsBefore(now, months) < date) months--;
     if (months < MONTHS_PER_YEAR) return { date: date, label: months + "mo ago" };
     return { date: date, label: Math.floor(months / MONTHS_PER_YEAR) + "y ago" };

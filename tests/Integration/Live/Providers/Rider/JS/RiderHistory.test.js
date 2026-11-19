@@ -11,14 +11,17 @@ if (fs.existsSync(directory)) {
     const api = source("Providers/Rider/JS/RiderApi.js").create();
     const values = source("Providers/Rider/JS/RiderProperties.js").defaultConfiguration();
     const properties = source("Providers/Rider/JS/RiderProperties.js").create(values);
-    const folders = fs.readdirSync(directory).filter(name => /^Rider/.test(name)).slice(0, 20);
+    const folders = fs
+        .readdirSync(directory)
+        .filter((name) => /^Rider/.test(name))
+        .slice(0, 20);
     let count = 0;
     for (const folder of folders) {
         const file = path.join(directory, folder, "options/recentSolutions.xml");
         if (!fs.existsSync(file)) continue;
         const records = api.parseHistory({ text: fs.readFileSync(file, "utf8"), home: os.homedir() }, properties);
         count += records.length;
-        assert.ok(records.every(record => record.path.startsWith("/")));
+        assert.ok(records.every((record) => record.path.startsWith("/")));
     }
     if (folders.length) assert.ok(count > 0, "No Rider history records were read");
     const executable = path.join(os.homedir(), "JetBrains Rider/bin/rider");

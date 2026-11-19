@@ -4,7 +4,9 @@
 
 // Read the program token from a desktop entry without executing its command.
 function commandProgram(command) {
-    const match = String(command || "").trim().match(/^(?:"([^"]+)"|'([^']+)'|([^\s]+))/);
+    const match = String(command || "")
+        .trim()
+        .match(/^(?:"([^"]+)"|'([^']+)'|([^\s]+))/);
     return match ? match[1] || match[2] || match[3] : "";
 }
 
@@ -25,6 +27,8 @@ function iconName(executable, entries) {
 
 // Snap applications can declare their desktop entry ID because their executable is the shared snap launcher.
 function desktopIconName(desktopId, entries) {
-    const match = (entries || []).find(function(entry) { return entry.id === desktopId || entry.id === desktopId + ".desktop"; });
+    const match = (entries || []).find(function (entry) {
+        return entry.id === desktopId || entry.id === desktopId + ".desktop";
+    });
     return match && match.icon ? String(match.icon) : "";
 }

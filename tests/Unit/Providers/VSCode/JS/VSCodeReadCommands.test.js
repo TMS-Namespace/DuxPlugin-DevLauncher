@@ -2,7 +2,14 @@
 const assert = require("node:assert/strict");
 const source = require("../../../../Helpers/LoadSource.cjs");
 const vsCodeCommands = source("Providers/VSCode/JS/VSCodeReadCommands.js");
-assert.deepEqual(Array.from(vsCodeCommands.modifiedTime("/tmp/history")), ["timeout", "4s", "stat", "-c", "%Y", "/tmp/history"]);
+assert.deepEqual(Array.from(vsCodeCommands.modifiedTime("/tmp/history")), [
+    "timeout",
+    "4s",
+    "stat",
+    "-c",
+    "%Y",
+    "/tmp/history"
+]);
 // The JSON history read is capped: head fetches one byte past the limit so an oversize file can be refused.
 const jsonCommand = vsCodeCommands.json("/tmp/storage.json");
 assert.deepEqual(Array.from(jsonCommand.slice(0, 4)), ["timeout", "4s", "head", "-c"]);
@@ -29,4 +36,6 @@ try {
         assert.equal(modified.status, 0);
         assert.equal(Number(modified.stdout), Math.floor(fs.statSync(filename).mtimeMs / 1000));
     }
-} finally { fs.rmSync(root, { recursive: true, force: true }); }
+} finally {
+    fs.rmSync(root, { recursive: true, force: true });
+}

@@ -9,5 +9,6 @@ QtObject {
     property string name: ""
     property string executable: ""
     property var extraArguments: []
-    property var settings: ({})
+    property var settings: ({
+    })
 }

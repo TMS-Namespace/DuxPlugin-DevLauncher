@@ -8,8 +8,17 @@ const integrity = source("Helpers/SettingsIntegrity.js");
 const folderId = "7b65f5c6-7284-47cf-9ce2-9a4a71a16571";
 assert.equal(integrity.damaged("folders", ["/tmp/one", "/tmp/one/sub"]), true);
 assert.equal(integrity.damaged("folders", ["/tmp/one", "/tmp/two"]), true);
-assert.equal(integrity.damaged("folders", [{ installationType: "native", id: folderId, type: "localgit", folder: "/tmp/one" }]), false);
-assert.equal(integrity.damaged("folders", [{ installationType: "native", id: folderId, type: "localgit", folder: "/tmp/one" }, { id: folderId, type: "localgit", folder: "/tmp/two" }]), true);
+assert.equal(
+    integrity.damaged("folders", [{ installationType: "native", id: folderId, type: "localgit", folder: "/tmp/one" }]),
+    false
+);
+assert.equal(
+    integrity.damaged("folders", [
+        { installationType: "native", id: folderId, type: "localgit", folder: "/tmp/one" },
+        { id: folderId, type: "localgit", folder: "/tmp/two" }
+    ]),
+    true
+);
 assert.equal(integrity.damaged("folders", "invalid"), true);
 assert.equal(integrity.damaged("providers", [{ id: "one" }, null]), true);
 assert.equal(integrity.damaged("providers", [{ id: "one" }]), false);
@@ -25,7 +34,6 @@ assert.equal(integrity.damaged("trigger", "a2"), true);
 assert.equal(integrity.damaged("searchPaths", "yes"), true);
 assert.equal(integrity.damaged("showBadges", false), false);
 assert.equal(integrity.damaged("showBadges", "no"), true);
-
 
 // Compare plain data by its JSON form, because the loader evaluates modules in another JS realm.
 // Asserts that two values are equal when compared by their JSON form.

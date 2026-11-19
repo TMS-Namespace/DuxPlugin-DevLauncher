@@ -9,12 +9,16 @@ ShellRoot {
         if (component.status !== Component.Ready) {
             console.warn("T:FAIL live Zed component " + component.errorString());
             exitTimer.start();
-            return;
+            return ;
         }
         try {
             const reader = component.createObject(null);
             const rows = reader.readDatabase(Quickshell.env("DEV_LAUNCHER_LIVE_ZED_HISTORY"));
-            if (!rows.length || !rows.some(function(row) { return !!row.timestamp; })) throw new Error("No dated local Zed history");
+            if (!rows.length || !rows.some(function(row) {
+                return !!row.timestamp;
+            }))
+                throw new Error("No dated local Zed history");
+
             console.warn("T:PASS live Zed history entries=" + rows.length);
             reader.destroy();
         } catch (caughtError) {
@@ -22,5 +26,13 @@ ShellRoot {
         }
         exitTimer.start();
     }
-    Timer { id: exitTimer; interval: 100; repeat: false; onTriggered: Qt.quit(); }
+
+    Timer {
+        id: exitTimer
+
+        interval: 100
+        repeat: false
+        onTriggered: Qt.quit()
+    }
+
 }

@@ -38,9 +38,23 @@ function diagnosticPath(quoted) {
         if (plain !== undefined) encoded += encodeURIComponent(plain);
         else {
             const text = segment[2] !== undefined ? segment[2] : segment[3];
-            const escapes = { "n": "\n", "r": "\r", "t": "\t", "a": "\u0007", "b": "\b", "f": "\f", "v": "\u000b", "e": "\u001b", "\\": "\\", "'": "'", '"': '"', "$": "$", "`": "`" };
+            const escapes = {
+                n: "\n",
+                r: "\r",
+                t: "\t",
+                a: "\u0007",
+                b: "\b",
+                f: "\f",
+                v: "\u000b",
+                e: "\u001b",
+                "\\": "\\",
+                "'": "'",
+                '"': '"',
+                $: "$",
+                "`": "`"
+            };
             let invalid = false;
-            encoded += text.replace(/\\([0-7]{3}|.)|([^\\]+)/g, function(match, escape, literal) {
+            encoded += text.replace(/\\([0-7]{3}|.)|([^\\]+)/g, function (match, escape, literal) {
                 if (literal !== undefined) return encodeURIComponent(literal);
                 if (/^[0-7]{3}$/.test(escape)) return "%" + parseInt(escape, 8).toString(16).padStart(2, "0");
                 if (Object.prototype.hasOwnProperty.call(escapes, escape)) return encodeURIComponent(escapes[escape]);
@@ -51,8 +65,11 @@ function diagnosticPath(quoted) {
         }
         remaining = remaining.slice(segment[0].length);
     }
-    try { return decodeURIComponent(encoded); }
-    catch (invalidEncoding) { return ""; } // Malformed bytes never confirm absence.
+    try {
+        return decodeURIComponent(encoded);
+    } catch (invalidEncoding) {
+        return "";
+    } // Malformed bytes never confirm absence.
 }
 
 // Only explicit absence diagnostics confirm a missing path. Permission failures, timeouts, and command failures do not.
@@ -60,17 +77,19 @@ function diagnosticPath(quoted) {
 function missingPaths(requested, modified, errorOutput, exitCode) {
     if (exitCode !== 1) return [];
     const lines = String(errorOutput || "").split("\n");
-    const absent = lines.map(function(line) {
+    const absent = lines.map(function (line) {
         const diagnostic = /^stat: cannot statx? (.*): (?:No such file or directory|Not a directory)$/.exec(line);
         return diagnostic ? diagnosticPath(diagnostic[1]) : "";
     });
-    return requested.filter(function(path) {
+    return requested.filter(function (path) {
         if (Object.prototype.hasOwnProperty.call(modified, path)) return false;
         if (absent.includes(path)) return true;
-        return ["cannot stat", "cannot statx"].some(function(operation) {
-            return ["'", '"'].some(function(quote) {
+        return ["cannot stat", "cannot statx"].some(function (operation) {
+            return ["'", '"'].some(function (quote) {
                 const prefix = "stat: " + operation + " " + quote + path + quote + ": ";
-                return lines.includes(prefix + "No such file or directory") || lines.includes(prefix + "Not a directory");
+                return (
+                    lines.includes(prefix + "No such file or directory") || lines.includes(prefix + "Not a directory")
+                );
             });
         });
     });

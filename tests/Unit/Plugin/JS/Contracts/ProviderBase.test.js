@@ -6,9 +6,15 @@ const abstract = base.create();
 
 // Every method of the abstract entry point refuses to run until a provider overrides it.
 for (const method of ["typeId", "name", "descriptor", "defaultConfiguration", "createApi"]) {
-    assert.throws(() => abstract[method](), error => error.code === "providerConfig" && error.details === "Missing " + method);
+    assert.throws(
+        () => abstract[method](),
+        (error) => error.code === "providerConfig" && error.details === "Missing " + method
+    );
 }
-assert.throws(() => abstract.createProperties({}), error => error.details === "Missing createProperties");
+assert.throws(
+    () => abstract.createProperties({}),
+    (error) => error.details === "Missing createProperties"
+);
 
 // The VS Code entry point overrides every method and reports the VS Code identity.
 const vsCode = source("Providers/VSCode/JS/Integration/VSCodeProvider.js").create();

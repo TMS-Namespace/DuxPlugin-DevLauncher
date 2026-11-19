@@ -9,7 +9,8 @@ QtObject {
         VSCode,
         Zed,
         Rider,
-        LocalGit
+        LocalGit,
+        NeoVim
     }
 
 }

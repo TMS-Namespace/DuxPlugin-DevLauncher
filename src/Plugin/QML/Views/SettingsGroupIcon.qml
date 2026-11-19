@@ -5,6 +5,7 @@ import qs.DCommon.Widgets
 
 DIcon {
     required property string iconName
+
     name: iconName
     size: DuxCommon.Style.iconSize
     color: Theme.surfaceText

@@ -1,0 +1,2 @@
+module DevLauncher.Providers.NeoVim.Integration
+NeoVimProvider 1.0 NeoVimProvider.qml

@@ -10,6 +10,12 @@ for (const executable of ["/tmp/Värmland 日本語/code", "/tmp/program ", "/tm
 }
 
 // Snap desktop entries resolve their own icon instead of the shared snap launcher icon.
-assert.equal(rules.desktopIconName("code_code", [{ id: "other", icon: "wrong" }, { id: "code_code.desktop", icon: "/snap/code/current/meta/gui/vscode.png" }]), "/snap/code/current/meta/gui/vscode.png");
+assert.equal(
+    rules.desktopIconName("code_code", [
+        { id: "other", icon: "wrong" },
+        { id: "code_code.desktop", icon: "/snap/code/current/meta/gui/vscode.png" }
+    ]),
+    "/snap/code/current/meta/gui/vscode.png"
+);
 assert.equal(rules.desktopIconName("zed_zed", [{ id: "zed_zed", icon: "dev.zed.Zed" }]), "dev.zed.Zed");
 assert.equal(rules.desktopIconName("missing", []), "");

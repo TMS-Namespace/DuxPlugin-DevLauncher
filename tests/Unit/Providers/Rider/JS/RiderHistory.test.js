@@ -16,15 +16,24 @@ assert.equal(rows[1].path, "/tmp/a b.sln");
 assert.equal(rows[1].kind, "file");
 assert.throws(() => history.records(xml.replace("</entry>", ""), "/home/user", properties));
 assert.throws(() => history.records(xml.replace("&amp;", "&unknown;"), "/home/user", properties));
-assert.throws(() => history.records(xml.replace('key="/tmp/a&#x20;b.sln"', 'key=/broken'), "/home/user", properties));
-assert.throws(() => history.records('<!DOCTYPE application><application/>', "/home/user", properties));
+assert.throws(() => history.records(xml.replace('key="/tmp/a&#x20;b.sln"', "key=/broken"), "/home/user", properties));
+assert.throws(() => history.records("<!DOCTYPE application><application/>", "/home/user", properties));
 assert.throws(() => history.records("<application/>", "/home/user", properties));
 
 assert.throws(() => history.records(xml.replace("&amp;", "&broken"), "/home/user", properties));
-const merged = history.merge([{ path: "/same", openedAt: 200 }, { path: "/same", openedAt: 100 }, { path: "/other", openedAt: 10 }]);
+const merged = history.merge([
+    { path: "/same", openedAt: 200 },
+    { path: "/same", openedAt: 100 },
+    { path: "/other", openedAt: 10 }
+]);
 assert.equal(merged.length, 2);
-assert.equal(merged.find(entry => entry.path === "/same").openedAt, 200);
+assert.equal(merged.find((entry) => entry.path === "/same").openedAt, 200);
 
 // An unrelated JetBrains component must not leak its paths into Rider history.
-const unrelated = '<application><component name="Other"><option name="additionalInfo"><map><entry key="/wrong"><value/></entry></map></option></component><component name="RiderRecentProjectsManager"/></application>';
+const unrelated =
+    '<application><component name="Other"><option name="additionalInfo"><map><entry key="/wrong"><value/></entry></map></option></component><component name="RiderRecentProjectsManager"/></application>';
 assert.equal(history.records(unrelated, "/home/user", properties).length, 0);
+
+// Rider's launcher cannot reopen an IDE-only remote URI, so the provider does not report it.
+const remoteXml = xml.replace("$USER_HOME$/Project &amp; 日本語", "ssh://server/work/project");
+assert.equal(history.records(remoteXml, "/home/user", properties).length, 1);

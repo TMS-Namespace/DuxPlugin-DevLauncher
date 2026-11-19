@@ -58,3 +58,10 @@ var sourceBadgeSize = 28;
 var sourceBadgeInset = 2;
 var sourceBadgePadding = 1;
 var sourceBadgeOpacity = 0.6;
+
+// Bounds for user-visible IDE installation aliases.
+var minIdeAliasLength = 3;
+var maxIdeAliasLength = 20;
+
+// Bound the mount-table lookup performed as part of each requested scan.
+var mountScanTimeout = "3s";

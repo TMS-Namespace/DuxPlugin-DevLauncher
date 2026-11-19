@@ -4,9 +4,19 @@ import QtQuick
 Item {
     property string title: ""
     property bool embedded: true
-    signal rejected
     default property alias content: body.data
     property alias actions: actionRow.data
-    Item { id: body; anchors.fill: parent }
-    Item { id: actionRow }
+
+    signal rejected()
+
+    Item {
+        id: body
+
+        anchors.fill: parent
+    }
+
+    Item {
+        id: actionRow
+    }
+
 }

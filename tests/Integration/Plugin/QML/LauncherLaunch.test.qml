@@ -1,24 +1,31 @@
 // LauncherLaunch.test.qml - Check missing IDE feedback without recording usage.
 // Rules: Runs in the offscreen shell; a launch with a missing IDE must show feedback and record no usage, and each alias must open its own installation.
+import "../../../../src/Plugin/QML/Services" as Services
 import QtQuick
 import qs.Services as DuxServices
-import "../../../../src/Plugin/QML/Services" as Services
 
 QtObject {
     id: checks
+
     required property var fixture
     readonly property var root: fixture
     readonly property var expect: fixture.expect
 
     // A result whose IDE facade is gone must report why nothing launched and must not record usage.
     function checkMissingIdeLaunch() {
-        root.launcher = root.launcherComponent.createObject(null, { pluginService: root.testPluginService });
+        root.launcher = root.launcherComponent.createObject(null, {
+            "pluginService": root.testPluginService
+        });
         const messagesBefore = DuxServices.ToastService.messages.length;
-        root.launcher.executeItem({ id: "/tmp/regression-item", name: "regression-item", path: "/tmp/regression-item", kind: "file", provider: root.unknownIdentifier });
+        root.launcher.executeItem({
+            "id": "/tmp/regression-item",
+            "name": "regression-item",
+            "path": "/tmp/regression-item",
+            "kind": "file",
+            "provider": root.unknownIdentifier
+        });
         const messages = DuxServices.ToastService.messages;
-        return expect(messages.length === messagesBefore + 1 && messages[messages.length - 1].includes("not available"),
-            "launch with a missing IDE gave no feedback: " + messages.length + " " + messagesBefore)
-            && expect(Object.keys(root.settings.usage).length === 0, "launch with a missing IDE recorded usage");
+        return expect(messages.length === messagesBefore + 1 && messages[messages.length - 1].includes("not available"), "launch with a missing IDE gave no feedback: " + messages.length + " " + messagesBefore) && expect(Object.keys(root.settings.usage).length === 0, "launch with a missing IDE recorded usage");
     }
 
     // Each alias must select its own installation ID, even when both installations use one IDE type.
@@ -28,24 +35,81 @@ QtObject {
         const previousUsage = root.settings.usage;
         const launched = [];
         try {
-            root.settings.providers = [
-                { installationType: "native", id: root.firstIdentifier, type: "vscode", name: "Office IDE" },
-                { installationType: "native", id: root.secondIdentifier, type: "vscode", name: "Personal IDE" }
-            ];
-            const handlers = {};
+            root.settings.providers = [{
+                "installationType": "native",
+                "id": root.firstIdentifier,
+                "type": "vscode",
+                "name": "Office IDE"
+            }, {
+                "installationType": "native",
+                "id": root.secondIdentifier,
+                "type": "vscode",
+                "name": "Personal IDE"
+            }];
+            const handlers = {
+            };
             // Stub: records a launch of the first installation with the given path.
-            handlers[root.firstIdentifier] = { launch: function(path) { launched.push({ id: root.firstIdentifier, path: path }); } };
+            handlers[root.firstIdentifier] = {
+                "launch": function(path) {
+                    launched.push({
+                        "id": root.firstIdentifier,
+                        "path": path
+                    });
+                }
+            };
             // Stub: records a launch of the second installation with the given path.
-            handlers[root.secondIdentifier] = { launch: function(path) { launched.push({ id: root.secondIdentifier, path: path }); } };
+            handlers[root.secondIdentifier] = {
+                "launch": function(path) {
+                    launched.push({
+                        "id": root.secondIdentifier,
+                        "path": path
+                    });
+                }
+            };
             Services.ProvidersManager.handlers = handlers;
-            const item = { path: "/tmp/alias-action", kind: "folder" };
+            const item = {
+                "path": "/tmp/alias-action",
+                "kind": "folder"
+            };
             const actions = root.launcher.getContextMenuActions(item);
-            const office = actions.find(function(action) { return action.text === "Open with Office IDE"; });
-            const personal = actions.find(function(action) { return action.text === "Open with Personal IDE"; });
-            if (!expect(office && personal, "configured IDE aliases were missing from result actions")) return false;
+            const office = actions.find(function(action) {
+                return action.text === "Open with Office IDE";
+            });
+            const personal = actions.find(function(action) {
+                return action.text === "Open with Personal IDE";
+            });
+            if (!expect(office && personal, "configured IDE aliases were missing from result actions"))
+                return false;
+
             office.action();
             personal.action();
-            return expect(launched.length === 2 && launched[0].id === root.firstIdentifier && launched[1].id === root.secondIdentifier && launched.every(function(launch) { return launch.path === item.path; }), "IDE alias action selected the wrong installation");
+            if (!expect(launched.length === 2 && launched[0].id === root.firstIdentifier && launched[1].id === root.secondIdentifier && launched.every(function(launch) {
+                return launch.path === item.path;
+            }), "IDE alias action selected the wrong installation"))
+                return false;
+
+            const remote = {
+                "path": "vscode-remote://ssh-remote+host/work/project",
+                "kind": "folder",
+                "provider": root.firstIdentifier,
+                "sourceProviders": [root.firstIdentifier]
+            };
+            const remoteActions = root.launcher.getContextMenuActions(remote);
+            if (!expect(remoteActions.some(function(action) {
+                return action.text === "Open with Office IDE";
+            }) && !remoteActions.some(function(action) {
+                return action.text === "Open with Personal IDE";
+            }), "remote actions included an unrelated IDE"))
+                return false;
+
+            remoteActions.find(function(action) {
+                return action.text === "Open with Office IDE";
+            }).action();
+            root.launcher.executeItem(Object.assign({
+            }, remote, {
+                "provider": root.secondIdentifier
+            }));
+            return expect(launched.length === 3 && launched[2].id === root.firstIdentifier && launched[2].path === remote.path, "remote item launched with an unrelated IDE");
         } finally {
             Services.ProvidersManager.handlers = previousHandlers;
             root.settings.providers = previousProviders;
@@ -60,8 +124,11 @@ QtObject {
         launcher.getItems("alpha");
         launcher.getItems("beta");
         launcher.getItems("gamma");
-        if (!expect(Services.RecentItemsCache.sortCount === before, "typing ordered the cache " + (Services.RecentItemsCache.sortCount - before) + " times")) return false;
+        if (!expect(Services.RecentItemsCache.sortCount === before, "typing ordered the cache " + (Services.RecentItemsCache.sortCount - before) + " times"))
+            return false;
+
         Services.RecentItemsCache.commit();
         return expect(Services.RecentItemsCache.sortCount === before + 1, "a scan did not order the cache exactly once");
     }
+
 }

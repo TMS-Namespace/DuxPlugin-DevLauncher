@@ -17,5 +17,7 @@ PluginError.prototype.constructor = PluginError;
 
 // Hide foreign exception text from the user interface.
 function from(value) {
-    return value instanceof PluginError ? value : new PluginError(Code.PARSE, "Could not read an IDE's recent history.", String(value));
+    return value instanceof PluginError
+        ? value
+        : new PluginError(Code.PARSE, "Could not read an IDE's recent history.", String(value));
 }

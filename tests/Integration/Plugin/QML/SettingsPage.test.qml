@@ -7,6 +7,7 @@ import qs.DCommon.Common as DuxCommon
 
 Item {
     id: checks
+
     required property var fixture
     readonly property var root: fixture
     readonly property var pluginService: fixture.testPluginService
@@ -22,17 +23,17 @@ Item {
         if (root.settingsPage.controller.resultsLimit !== 100) {
             console.warn("T:FAIL default result limit");
             Qt.quit();
-            return;
+            return ;
         }
         if (root.settingsPage.controller.trigger !== "`" || root.settingsPage.searchPathsToggle.checked || root.settingsPage.controller.searchPaths) {
             console.warn("T:FAIL default trigger or search scope");
             Qt.quit();
-            return;
+            return ;
         }
         if (!root.settingsPage.controller.showBadges || !root.settingsPage.showBadgesToggle.checked) {
             console.warn("T:FAIL badges should be enabled by default");
             Qt.quit();
-            return;
+            return ;
         }
         const invalidTriggerAccepted = root.settingsPage.saveValue("trigger", "bad 1");
         const invalidTriggerMessage = root.settingsPage.controller.triggerError;
@@ -46,23 +47,23 @@ Item {
         if (invalidTriggerAccepted || !invalidTriggerMessage.includes("no numbers") || otherTriggerAccepted || !otherTriggerMessage.includes("another launcher plugin") || builtInTriggerAccepted || !builtInTriggerMessage.includes("built-in launcher plugin") || !validTriggerAccepted || validTriggerValue !== "ab" || !resetTriggerAccepted || root.settingsPage.controller.triggerError !== "") {
             console.warn("T:FAIL launcher trigger validation " + invalidTriggerAccepted + " | " + invalidTriggerMessage + " | " + otherTriggerMessage + " | " + builtInTriggerMessage + " | " + validTriggerAccepted + " | " + validTriggerValue + " | " + resetTriggerAccepted);
             Qt.quit();
-            return;
+            return ;
         }
         if (root.settingsPage.controller.ageFilterValue !== 3 || root.settingsPage.controller.ageFilterUnit !== "months" || root.settingsPage.ageFilterStepper.text !== "3" || root.settingsPage.ageUnitDropdown.currentValue !== "months" || root.settingsPage.ageUnitDropdown.dropdownWidth !== root.settingsPage.defaultIdeDropdown.dropdownWidth || root.settingsPage.introText.text.includes("@IDEName") || root.settingsPage.ageFilterRow.labelText !== "Don't show items older than" || root.settingsPage.controller.repositoryDepth !== 3 || root.settingsPage.repositoryDepthSlider.value !== 3 || root.settingsPage.repositoryDepthSlider.minimum !== 1 || root.settingsPage.repositoryDepthSlider.maximum !== 20 || root.settingsPage.repositorySettingsGroup.title.trim() !== "Scanning folders with Git repositories") {
             console.warn("T:FAIL default age filter");
             Qt.quit();
-            return;
+            return ;
         }
         if (root.settingsPage.globalSettingsGroup.expanded || root.settingsPage.repositorySettingsGroup.expanded || root.settingsPage.ideSettingsGroup.expanded) {
             console.warn("T:FAIL settings groups should start collapsed");
             Qt.quit();
-            return;
+            return ;
         }
         const providerRow = root.settingsPage.ideSettingsView.providerRows.itemAt(0);
         if (providerRow.nameLabel.text !== "VS Code" || providerRow.nameLabel.font.pixelSize !== HostCommon.Theme.fontSizeLarge || !providerRow.iconRenderer.iconValue || providerRow.rowBackground.color !== HostCommon.Theme.surfaceContainerHigh) {
             console.warn("T:FAIL IDE list name or executable icon");
             Qt.quit();
-            return;
+            return ;
         }
         root.settingsPage.globalSettingsGroup.expanded = true;
         root.settingsPage.repositorySettingsGroup.expanded = true;
@@ -71,14 +72,14 @@ Item {
         if (root.settingsPage.controller.resultsLimit !== 50 || root.settings.resultsLimit !== 50 || root.settingsPage.resultsLimitDropdown.currentValue !== "50" || root.pluginDataChanges !== 0 || !root.settingsPage.globalSettingsGroup.expanded) {
             console.warn("T:FAIL result limit dropdown");
             Qt.quit();
-            return;
+            return ;
         }
         root.settingsPage.ageFilterStepper.onDecrement();
         root.settingsPage.ageUnitDropdown.valueChanged("weeks");
         if (root.settingsPage.controller.ageFilterValue !== 2 || root.settingsPage.controller.ageFilterUnit !== "weeks" || root.settings.ageFilter.value !== 2 || root.settings.ageFilter.unit !== "weeks" || root.pluginDataChanges !== 0 || !root.settingsPage.globalSettingsGroup.expanded || root.settingsPage.controller.setAgeFilterValue(0)) {
             console.warn("T:FAIL age filter controls or group state");
             Qt.quit();
-            return;
+            return ;
         }
         root.settingsPage.ageFilterStepper.onIncrement();
         root.settingsPage.ageUnitDropdown.valueChanged("months");
@@ -86,64 +87,71 @@ Item {
         if (root.settingsPage.controller.repositoryDepth !== 5 || root.settings.repositoryDepth !== 5 || !root.settingsPage.repositorySettingsGroup.expanded || root.pluginDataChanges !== 0) {
             console.warn("T:FAIL repository depth slider or group state");
             Qt.quit();
-            return;
+            return ;
         }
         root.settingsPage.repositoryDepthSlider.sliderValueChanged(3);
         const previousPage = root.settingsPage;
-        root.settingsPage = settingsComponent.createObject(root.testWindowSurface.contentItem, { "width": 1000 });
+        root.settingsPage = settingsComponent.createObject(root.testWindowSurface.contentItem, {
+            "width": 1000
+        });
         if (!root.settingsPage.globalSettingsGroup.expanded || !root.settingsPage.repositorySettingsGroup.expanded || !root.settingsPage.ideSettingsGroup.expanded) {
             console.warn("T:FAIL settings groups did not start in saved state");
             Qt.quit();
-            return;
+            return ;
         }
         let expansionChanges = 0;
-        root.settingsPage.globalSettingsGroup.expandedChanged.connect(function() { expansionChanges++; });
-        root.settingsPage.ideSettingsGroup.expandedChanged.connect(function() { expansionChanges++; });
+        root.settingsPage.globalSettingsGroup.expandedChanged.connect(function() {
+            expansionChanges++;
+        });
+        root.settingsPage.ideSettingsGroup.expandedChanged.connect(function() {
+            expansionChanges++;
+        });
         root.settingsPage.pluginService = pluginService;
         previousPage.destroy();
         if (!root.settingsPage.globalSettingsGroup.expanded || !root.settingsPage.repositorySettingsGroup.expanded || !root.settingsPage.ideSettingsGroup.expanded || expansionChanges !== 0) {
             console.warn("T:FAIL settings group changed during reload");
             Qt.quit();
-            return;
+            return ;
         }
         root.settingsPage.defaultIdeDropdown.valueChanged("");
         if (root.settingsPage.controller.defaultProvider !== "" || !root.settingsPage.defaultIdeDropdown.enabled) {
             console.warn("T:FAIL default IDE dropdown");
             Qt.quit();
-            return;
+            return ;
         }
         root.settingsPage.folderPicker.accepted([Quickshell.env("DEV_LAUNCHER_FIXTURE")]);
         if (root.settingsPage.controller.folders.length !== 1 || !root.settingsPage.controller.removeFolder(0) || !root.settingsPage.controller.addFolder(Quickshell.env("DEV_LAUNCHER_FIXTURE") + "/sample") || !root.settingsPage.controller.addFolder(Quickshell.env("DEV_LAUNCHER_FIXTURE") + "/other-root")) {
             console.warn("T:FAIL folder picker or remove action");
             Qt.quit();
-            return;
+            return ;
         }
         if (root.settingsPage.folderSettingsView.folderRows.itemAt(0).color !== HostCommon.Theme.surfaceContainerHigh) {
             console.warn("T:FAIL folder list background");
             Qt.quit();
-            return;
+            return ;
         }
         const scannedFolder = root.settingsPage.controller.folders[0].folder;
         if (root.settingsPage.controller.addFolder(scannedFolder + "/") || root.settingsPage.controller.folders.length !== 2 || !root.settingsPage.folderSettingsView.errorLabel.visible || !root.settingsPage.folderSettingsView.errorLabel.text.includes("already being scanned")) {
             console.warn("T:FAIL duplicate scan folder feedback");
             Qt.quit();
-            return;
+            return ;
         }
         if (root.settingsPage.controller.addFolder(scannedFolder + "/nested") || root.settingsPage.controller.folders.length !== 2 || !root.settingsPage.folderSettingsView.errorLabel.text.includes("covered by")) {
             console.warn("T:FAIL nested scan folder feedback");
             Qt.quit();
-            return;
+            return ;
         }
         if (root.settingsPage.controller.addFolder(Quickshell.env("DEV_LAUNCHER_FIXTURE")) || !root.settingsPage.folderSettingsView.errorLabel.text.includes("parent folder")) {
             console.warn("T:FAIL parent scan folder feedback");
             Qt.quit();
-            return;
+            return ;
         }
         return true;
     }
 
     Timer {
         id: alignmentCheck
+
         interval: 100
         running: true
         repeat: false
@@ -166,7 +174,7 @@ Item {
             if (!page.ageFilterRow.width || unit.width !== defaultIde.dropdownWidth || triggerField.width !== defaultIde.dropdownWidth || Math.abs(unitRight - defaultIdeRight) > 3 || Math.abs(triggerRight - defaultIdeRight) > 3 || Math.abs(depthRight - sliderRight) > 3 || sliderTop - depthLabelBottom < 0 || sliderTop - depthLabelBottom > HostCommon.Theme.spacingS || folderTop <= sliderTop || depthLabel.text !== "3 levels") {
                 console.warn("T:FAIL settings row alignment " + unitRight + " " + defaultIdeRight + " " + triggerRight + " " + depthRight + " " + sliderRight + " " + folderTop + " " + sliderTop + " " + depthLabelBottom + " " + depthLabel.y + " " + depthSlider.y + " " + depthLabel.height + " " + depthSlider.height + " " + (depthLabel.parent === depthSlider.parent) + " " + depthLabel.text);
                 Qt.quit();
-                return;
+                return ;
             }
             const folderButton = page.folderSettingsView.addButton;
             const ideButton = page.ideSettingsView.addButton;
@@ -179,7 +187,7 @@ Item {
             if (folderButton.variant !== "tonal" || ideButton.variant !== "tonal" || folderButton.iconName !== "add" || ideButton.iconName !== "add" || Math.abs(folderButton.x + folderButton.width / 2 - page.folderSettingsView.width / 2) > 1 || Math.abs(ideButton.x + ideButton.width / 2 - page.ideSettingsView.width / 2) > 1 || page.globalSettingsIcon.name !== "tune" || page.repositorySettingsIcon.name !== "folder_copy" || page.ideSettingsIcon.name !== "code" || invalidIcon) {
                 console.warn("T:FAIL themed add buttons or settings group icons");
                 Qt.quit();
-                return;
+                return ;
             }
             const ideView = page.ideSettingsView;
             const providerRow = ideView.providerRows.itemAt(0);
@@ -194,14 +202,16 @@ Item {
 
     Timer {
         id: ideExpandedCheck
+
         property int attempts: 0
+
         interval: 50
         repeat: false
         onTriggered: {
             const page = root.settingsPage;
             if (!page.controller.canSave && page.controller.validationError === "" && attempts++ < 20) {
                 restart();
-                return;
+                return ;
             }
             const ideView = page.ideSettingsView;
             const providerRow = ideView.providerRows.itemAt(0);
@@ -211,53 +221,73 @@ Item {
             if (!editor || !page.controller.canSave || page.controller.draft.executable !== Quickshell.env("DEV_LAUNCHER_CODE_PATH") || editor.executableRow.text !== Quickshell.env("DEV_LAUNCHER_CODE_PATH") || editor.executableRow.inputField.text !== Quickshell.env("DEV_LAUNCHER_CODE_PATH") || !editorCard.visible || providerRow.editButton.enabled || editorCard.height <= 0 || editorCard.width >= providerRow.width || editorCard.color !== HostCommon.Theme.surfaceContainerHighest || ideView.implicitHeight <= root.compactIdeHeight || page.ideSettingsGroup.implicitHeight <= root.compactIdeSectionHeight || editor.saveButton.y >= editor.aliasRow.y || editor.cancelButton.y !== editor.saveButton.y || editor.cancelButton.x <= editor.saveButton.x || page.controller.draft.id !== page.controller.providers[0].id || !argumentButton || argumentButton.variant !== "tonal" || Math.abs(argumentButton.x + argumentButton.width / 2 - argumentButton.parent.width / 2) > 1) {
                 console.warn("T:FAIL IDE editor card layout or resolved executable " + page.controller.validationError);
                 Qt.quit();
-                return;
+                return ;
             }
             const installationId = page.controller.draft.id;
             editor.editIconButton.clicked();
             if (!page.iconPicker.opened || !page.iconPicker.filters.includes("*.svg")) {
-                console.warn("T:FAIL IDE icon chooser"); Qt.quit(); return;
+                console.warn("T:FAIL IDE icon chooser");
+                Qt.quit();
+                return ;
             }
             const selectedIcon = "/tmp/IDE 日本語 & icon.svg";
             page.iconPicker.accepted([selectedIcon]);
             if (page.controller.draft.iconPath !== selectedIcon || editor.iconRenderer.iconValue !== "image:" + selectedIcon) {
-                console.warn("T:FAIL IDE icon preview override"); Qt.quit(); return;
+                console.warn("T:FAIL IDE icon preview override");
+                Qt.quit();
+                return ;
             }
             editor.resetIconButton.clicked();
             if (page.controller.draft.iconPath !== "") {
-                console.warn("T:FAIL IDE icon reset"); Qt.quit(); return;
+                console.warn("T:FAIL IDE icon reset");
+                Qt.quit();
+                return ;
             }
             page.controller.edit("type", "zed");
             if (page.controller.draft.id !== installationId || page.controller.draft.name !== "Zed" || page.controller.draft.executable !== "/usr/bin/flatpak" || page.controller.draft.config !== "~/.var/app/dev.zed.Zed/data/zed" || editor.sharedFolderRow.visible) {
                 console.warn("T:FAIL changing IDE type did not load Zed settings");
                 Qt.quit();
-                return;
+                return ;
             }
             if (editor.installationDropdown.currentValue !== "flatpak" || editor.executableRow.label !== "Flatpak executable path") {
-                console.warn("T:FAIL Zed Flatpak installation UI"); Qt.quit(); return;
+                console.warn("T:FAIL Zed Flatpak installation UI");
+                Qt.quit();
+                return ;
             }
             page.controller.edit("installationType", "native");
             if (page.controller.draft.installationType !== "native" || page.controller.draft.executable !== "zed" || page.controller.draft.config !== "~/.local/share/zed" || editor.installationDropdown.currentValue !== "native") {
-                console.warn("T:FAIL switching to native Zed defaults"); Qt.quit(); return;
+                console.warn("T:FAIL switching to native Zed defaults");
+                Qt.quit();
+                return ;
             }
             page.controller.edit("installationType", "flatpak");
             if (page.controller.draft.executable !== "/usr/bin/flatpak" || page.controller.draft.config !== "~/.var/app/dev.zed.Zed/data/zed") {
-                console.warn("T:FAIL switching back to Flatpak Zed defaults"); Qt.quit(); return;
+                console.warn("T:FAIL switching back to Flatpak Zed defaults");
+                Qt.quit();
+                return ;
             }
             if (!editor.installationDropdown.optionValues.includes("snap")) {
-                console.warn("T:FAIL Snap is missing from Zed installation choices"); Qt.quit(); return;
+                console.warn("T:FAIL Snap is missing from Zed installation choices");
+                Qt.quit();
+                return ;
             }
             page.controller.edit("installationType", "snap");
             if (page.controller.draft.executable !== "/usr/bin/snap" || page.controller.draft.config !== "~/.local/share/zed" || editor.executableRow.label !== "Snap executable path") {
-                console.warn("T:FAIL selecting Zed Snap defaults"); Qt.quit(); return;
+                console.warn("T:FAIL selecting Zed Snap defaults");
+                Qt.quit();
+                return ;
             }
             page.controller.edit("type", "rider");
             if (page.controller.draft.id !== installationId || page.controller.draft.name !== "Rider" || page.controller.draft.executable !== "rider" || editor.sharedFolderRow.visible || editor.installationDropdown.optionValues.includes("flatpak") || !editor.installationDropdown.optionValues.includes("snap")) {
-                console.warn("T:FAIL Rider provider settings"); Qt.quit(); return;
+                console.warn("T:FAIL Rider provider settings");
+                Qt.quit();
+                return ;
             }
             page.controller.edit("installationType", "snap");
             if (page.controller.draft.executable !== "/usr/bin/snap" || page.controller.draft.config !== "~/.config/JetBrains") {
-                console.warn("T:FAIL Rider Snap settings"); Qt.quit(); return;
+                console.warn("T:FAIL Rider Snap settings");
+                Qt.quit();
+                return ;
             }
             editor.cancelButton.clicked();
             ideCollapsedCheck.start();
@@ -266,6 +296,7 @@ Item {
 
     Timer {
         id: ideCollapsedCheck
+
         interval: 50
         repeat: false
         onTriggered: {
@@ -275,7 +306,7 @@ Item {
             if (page.controller.editorOpen || editorCard.visible || editorCard.height !== 0 || !ideView.providerRows.itemAt(0).editButton.enabled || ideView.editorItem || Math.abs(ideView.implicitHeight - root.compactIdeHeight) > 1 || Math.abs(page.ideSettingsGroup.implicitHeight - root.compactIdeSectionHeight) > 1) {
                 console.warn("T:FAIL IDE editor card did not collapse after Cancel");
                 Qt.quit();
-                return;
+                return ;
             }
             root.firstIdeCheckFinished = true;
         }

@@ -1,9 +1,9 @@
 // ProviderValidator.qml - Check one draft IDE executable and its recent history asynchronously.
 // Rules: Only one check runs at a time, and a finished check reports its result without saving any setting.
+import "../../JS/Helpers/Config.js" as Config
+import "../Services"
 import QtQuick
 import Quickshell.Io
-import "../Services"
-import "../../JS/Helpers/Config.js" as Config
 
 Item {
     id: root
@@ -15,12 +15,15 @@ Item {
     property int pathIndex: 0
     // The full path of the executable that the which command found.
     property string resolvedPath: ""
+
     signal finished(bool accepted, string message, string field)
     signal resolvedExecutable(string path)
 
     // Resolve the executable before checking every provider-declared local path.
     function validate(candidate) {
-        if (running) return false;
+        if (running)
+            return false;
+
         handler = candidate;
         paths = handler.validationPaths();
         pathIndex = 0;
@@ -46,7 +49,7 @@ Item {
     function nextPath() {
         if (pathIndex < paths.length) {
             checkPath("-e");
-            return;
+            return ;
         }
         versionProcess.outputText = "";
         versionProcess.errorText = "";
@@ -55,7 +58,9 @@ Item {
         versionProcess.hasErrorStreamed = false;
         const probe = typeof handler.validationProbe === "function" ? handler.validationProbe(resolvedPath) : [];
         const argumentsList = probe && probe.length ? probe.slice() : handler.validationArgs().slice();
-        if (!probe || !probe.length) argumentsList[0] = resolvedPath;
+        if (!probe || !probe.length)
+            argumentsList[0] = resolvedPath;
+
         versionProcess.command = ["timeout", Config.providerValidationTimeout].concat(argumentsList);
         versionProcess.running = true;
     }
@@ -73,7 +78,7 @@ Item {
                 root.handler.validateHistory(records);
                 if (message) {
                     root.complete(false, message, root.historyField());
-                    return;
+                    return ;
                 }
                 root.complete(true, "");
             } catch (caughtError) {
@@ -81,18 +86,23 @@ Item {
                 root.complete(false, caughtError.userMessage || "Could not read recent IDE items.", caughtError.field || root.historyField());
             }
         });
-        if (!started) complete(false, "Could not start reading recent IDE items. Try again.", historyField());
+        if (!started)
+            complete(false, "Could not start reading recent IDE items. Try again.", historyField());
+
     }
 
     // Associate a general history-read failure with the provider's required storage field.
     function historyField() {
-        const target = paths.find(function(candidate) { return !candidate.optional && candidate.kind === "directory" && candidate.field; });
+        const target = paths.find(function(candidate) {
+            return !candidate.optional && candidate.kind === "directory" && candidate.field;
+        });
         return target ? target.field : "";
     }
 
     // Finds the executable path with the which command, then reports the path or a failure.
     Process {
         id: executableProcess
+
         property string outputText: ""
         property bool hasExited: false
         property bool hasStreamed: false
@@ -100,27 +110,40 @@ Item {
 
         // Wait for the resolved command path after the process has exited.
         function inspect() {
-            if (!hasExited || !hasStreamed) return;
+            if (!hasExited || !hasStreamed)
+                return ;
+
             // which appends one newline; embedded newlines and trailing spaces belong to the path.
             const path = outputText.endsWith("\n") ? outputText.slice(0, -1) : outputText;
             if (exitStatus !== 0 || !path.startsWith("/")) {
                 root.complete(false, "Choose an IDE executable that exists and can be run.", "executable");
-                return;
+                return ;
             }
             root.resolvedPath = path;
             root.resolvedExecutable(path);
             root.nextPath();
         }
 
-        onExited: function(exitCode) { exitStatus = exitCode; hasExited = true; inspect(); }
-        stdout: StdioCollector {
-            onStreamFinished: { executableProcess.outputText = text; executableProcess.hasStreamed = true; executableProcess.inspect(); }
+        onExited: function(exitCode) {
+            exitStatus = exitCode;
+            hasExited = true;
+            inspect();
         }
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                executableProcess.outputText = text;
+                executableProcess.hasStreamed = true;
+                executableProcess.inspect();
+            }
+        }
+
     }
 
     // Runs one test on the declared path at pathIndex: exists, then file or folder, then readable, and for folders also executable.
     Process {
         id: pathProcess
+
         // The test flag, such as -e or -r, of the path check that is running.
         property string flag: ""
 
@@ -130,16 +153,19 @@ Item {
             if (flag === "-e" && exitCode !== 0 && target.optional) {
                 root.pathIndex++;
                 root.nextPath();
-                return;
+                return ;
             }
             if (exitCode !== 0) {
                 root.complete(false, target.label + " is missing or cannot be read: " + target.path, target.field);
-                return;
+                return ;
             }
-            if (flag === "-e") root.checkPath(target.kind === "file" ? "-f" : "-d");
-            else if (flag === "-d" || flag === "-f") root.checkPath("-r");
-            else if (flag === "-r" && target.kind === "directory") root.checkPath("-x");
-            else {
+            if (flag === "-e") {
+                root.checkPath(target.kind === "file" ? "-f" : "-d");
+            } else if (flag === "-d" || flag === "-f") {
+                root.checkPath("-r");
+            } else if (flag === "-r" && target.kind === "directory") {
+                root.checkPath("-x");
+            } else {
                 root.pathIndex++;
                 root.nextPath();
             }
@@ -149,6 +175,7 @@ Item {
     // Runs the executable's version or probe command and checks its output and error text.
     Process {
         id: versionProcess
+
         property string outputText: ""
         property string errorText: ""
         property bool hasExited: false
@@ -158,10 +185,12 @@ Item {
 
         // Wait until stdout and stderr have drained after process exit.
         function inspect() {
-            if (!hasExited || !hasStreamed || !hasErrorStreamed) return;
+            if (!hasExited || !hasStreamed || !hasErrorStreamed)
+                return ;
+
             if (exitStatus !== 0) {
                 root.complete(false, "The selected IDE executable could not be started.", "executable");
-                return;
+                return ;
             }
             try {
                 root.handler.validateExecutable(outputText);
@@ -173,13 +202,28 @@ Item {
             }
         }
 
-        onExited: function(exitCode) { exitStatus = exitCode; hasExited = true; inspect(); }
+        onExited: function(exitCode) {
+            exitStatus = exitCode;
+            hasExited = true;
+            inspect();
+        }
+
         stdout: StdioCollector {
-            onStreamFinished: { versionProcess.outputText = text; versionProcess.hasStreamed = true; versionProcess.inspect(); }
+            onStreamFinished: {
+                versionProcess.outputText = text;
+                versionProcess.hasStreamed = true;
+                versionProcess.inspect();
+            }
         }
+
         stderr: StdioCollector {
-            onStreamFinished: { versionProcess.errorText = text; versionProcess.hasErrorStreamed = true; versionProcess.inspect(); }
+            onStreamFinished: {
+                versionProcess.errorText = text;
+                versionProcess.hasErrorStreamed = true;
+                versionProcess.inspect();
+            }
         }
+
     }
 
 }

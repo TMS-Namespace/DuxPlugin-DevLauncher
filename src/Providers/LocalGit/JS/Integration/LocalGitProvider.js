@@ -7,13 +7,27 @@
 .import "../LocalGitProperties.js" as LocalGitProperties
 
 var LocalGitProvider = class LocalGitProvider extends Base.ProviderBase {
-    typeId() { return Constants.PROVIDER_TYPE; }
-    name() { return LocalGitDescriptor.create().name; }
-    descriptor() { return LocalGitDescriptor.create(); }
-    defaultConfiguration() { return LocalGitProperties.defaultConfiguration(); }
-    createProperties(configuration) { return LocalGitProperties.create(configuration); }
-    createApi() { return LocalGitApi.create(); }
+    typeId() {
+        return Constants.PROVIDER_TYPE;
+    }
+    name() {
+        return LocalGitDescriptor.create().name;
+    }
+    descriptor() {
+        return LocalGitDescriptor.create();
+    }
+    defaultConfiguration() {
+        return LocalGitProperties.defaultConfiguration();
+    }
+    createProperties(configuration) {
+        return LocalGitProperties.create(configuration);
+    }
+    createApi() {
+        return LocalGitApi.create();
+    }
 };
 
 // Create the entry point the plugin's provider registry calls.
-function create() { return new LocalGitProvider(); }
+function create() {
+    return new LocalGitProvider();
+}

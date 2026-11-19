@@ -1,12 +1,13 @@
 // LabeledFieldRow.qml - Pair a visible left label with a right Dux text field.
+import "../../JS/Helpers/Config.js" as Config
 import QtQuick
 import QtQuick.Layouts
 import qs.Common
 import qs.DCommon.Widgets
-import "../../JS/Helpers/Config.js" as Config
 
 RowLayout {
     id: root
+
     property string label: ""
     property string description: ""
     property string errorText: ""
@@ -18,9 +19,10 @@ RowLayout {
     readonly property alias inputField: field
     property alias validator: field.validator
     readonly property alias errorLabel: fieldError
+
     signal edited(string value)
     signal editingFinished(string value)
-    signal actionRequested
+    signal actionRequested()
 
     width: parent ? parent.width : 0
     spacing: Theme.spacingM
@@ -29,6 +31,7 @@ RowLayout {
     Column {
         Layout.fillWidth: true
         spacing: Theme.spacingXS
+
         StyledText {
             text: root.label
             color: Theme.surfaceText
@@ -37,6 +40,7 @@ RowLayout {
             width: parent.width
             wrapMode: Text.WordWrap
         }
+
         StyledText {
             text: root.description
             color: Theme.surfaceVariantText
@@ -45,39 +49,50 @@ RowLayout {
             wrapMode: Text.WordWrap
             visible: root.description !== ""
         }
+
     }
+
     ColumnLayout {
         Layout.preferredWidth: Math.round(root.width * Config.settingsControlWidthFraction)
         spacing: Theme.spacingS
+
         RowLayout {
             Layout.fillWidth: true
             spacing: Theme.spacingS
+
             Item {
                 Layout.fillWidth: true
                 visible: root.fieldWidth > 0
             }
+
             DTextField {
                 id: field
+
                 placeholderText: root.placeholder
                 Layout.fillWidth: root.fieldWidth <= 0
                 Layout.preferredWidth: root.fieldWidth > 0 ? root.fieldWidth : -1
                 onTextEdited: root.edited(text)
                 onEditingFinished: root.editingFinished(text)
             }
+
             DButton {
                 text: root.actionText
                 visible: root.actionText !== ""
                 onClicked: root.actionRequested()
             }
+
             DActionButton {
                 iconName: root.actionIcon
                 tooltipText: "Remove argument"
                 visible: root.actionIcon !== ""
                 onClicked: root.actionRequested()
             }
+
         }
+
         StyledText {
             id: fieldError
+
             text: root.errorText
             visible: text !== ""
             color: Theme.error
@@ -85,5 +100,7 @@ RowLayout {
             wrapMode: Text.WrapAnywhere
             Layout.fillWidth: true
         }
+
     }
+
 }

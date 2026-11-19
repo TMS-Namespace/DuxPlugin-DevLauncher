@@ -5,9 +5,20 @@ const source = require("../../../../Helpers/LoadSource.cjs");
 const api = source("Providers/Rider/JS/RiderApi.js").create();
 const propertiesModule = source("Providers/Rider/JS/RiderProperties.js");
 const descriptor = source("Providers/Rider/JS/RiderDescriptor.js").create();
-const native = propertiesModule.create({ ...propertiesModule.defaultConfiguration(), executable: "/home/user/JetBrains Rider/bin/rider", extraArguments: ["--wait"] });
-assert.deepEqual(Array.from(descriptor.installations, option => option.type), ["native", "snap"]);
-assert.deepEqual(Array.from(api.launchArgs("/tmp/project name", native, "/home/user")), [native.executable, "--wait", "/tmp/project name"]);
+const native = propertiesModule.create({
+    ...propertiesModule.defaultConfiguration(),
+    executable: "/home/user/JetBrains Rider/bin/rider",
+    extraArguments: ["--wait"]
+});
+assert.deepEqual(
+    Array.from(descriptor.installations, (option) => option.type),
+    ["native", "snap"]
+);
+assert.deepEqual(Array.from(api.launchArgs("/tmp/project name", native, "/home/user")), [
+    native.executable,
+    "--wait",
+    "/tmp/project name"
+]);
 // The probe resolves symlinks in the shell and receives the executable as an argument, never as text inside the script.
 const probe = Array.from(api.validationProbe(native, native.executable));
 assert.deepEqual(probe.slice(0, 2), ["sh", "-c"]);
@@ -15,13 +26,26 @@ assert.deepEqual(probe.slice(3), ["sh", native.executable, "8388609"]);
 assert.equal(api.validateExecutable('{"productCode":"RD"}', native), true);
 assert.throws(() => api.validateExecutable('{"productCode":"IU"}', native));
 assert.throws(() => api.validateExecutable('{"productCode":"RD"}', { ...native, executable: "/tmp/bin/other" }));
-assert.throws(() => api.validateExecutable('not json', native));
-const snap = propertiesModule.create({ ...propertiesModule.defaultConfiguration(), installationType: "snap", executable: "/usr/bin/snap", extraArguments: ["--wait"] });
-assert.deepEqual(Array.from(api.launchArgs("/tmp/project name", snap, "/home/user")), ["/usr/bin/snap", "run", "rider", "--wait", "/tmp/project name"]);
+assert.throws(() => api.validateExecutable("not json", native));
+const snap = propertiesModule.create({
+    ...propertiesModule.defaultConfiguration(),
+    installationType: "snap",
+    executable: "/usr/bin/snap",
+    extraArguments: ["--wait"]
+});
+assert.deepEqual(Array.from(api.launchArgs("/tmp/project name", snap, "/home/user")), [
+    "/usr/bin/snap",
+    "run",
+    "rider",
+    "--wait",
+    "/tmp/project name"
+]);
 assert.deepEqual(Array.from(api.validationArgs(snap, "/home/user")), ["/usr/bin/snap", "list", "rider"]);
 assert.equal(api.validateExecutable("Name Version\nrider 2025.2\n", snap), true);
 assert.throws(() => api.validateExecutable("Name Version\nother 1.0\n", snap));
-assert.throws(() => propertiesModule.create({ ...propertiesModule.defaultConfiguration(), installationType: "flatpak" }));
+assert.throws(() =>
+    propertiesModule.create({ ...propertiesModule.defaultConfiguration(), installationType: "flatpak" })
+);
 
 // A launcher reached through a symlink (a user's bin folder) must still find its own installation's metadata.
 // The probe runs for real here, against a temporary installation and a symlink to its launcher.

@@ -1,6 +1,7 @@
-import QtQuick
 // Theme.qml - Supply the host theme properties used by this settings page.
 pragma Singleton
+
+import QtQuick
 
 QtObject {
     property real iconSizeLarge: 32

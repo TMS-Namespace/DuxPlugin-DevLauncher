@@ -5,4 +5,15 @@ const repositoryNotifications = source("Helpers/RepositoryNotificationRules.js")
 assert.deepEqual(Array.from(repositoryNotifications.newlyAdded(["/old"], ["/old"])), []);
 assert.deepEqual(Array.from(repositoryNotifications.newlyAdded(["/old"], ["/old", "/new"])), ["/new"]);
 assert.deepEqual(Array.from(repositoryNotifications.pending(["/new"], ["/new", "/later"], ["/later"])), ["/later"]);
-assert.deepEqual(Array.from(repositoryNotifications.messages([{ providerId: "old-id", message: "old error" }, { providerId: "new-id", message: "new error" }], ["new-id"])), ["new error"]);
+assert.deepEqual(
+    Array.from(
+        repositoryNotifications.messages(
+            [
+                { providerId: "old-id", message: "old error" },
+                { providerId: "new-id", message: "new error" }
+            ],
+            ["new-id"]
+        )
+    ),
+    ["new error"]
+);

@@ -10,11 +10,14 @@ assert.equal(descriptors.validate(vsCode).typeId, "vscode");
 
 // Each rule the plugin depends on is checked: a bad declaration is refused with a provider-misconfiguration error.
 // Asserts that the given broken declaration is refused with a providerConfig error and the standard user message.
-const refused = function(broken) {
-    assert.throws(() => descriptors.validate(broken), error => error.code === "providerConfig" && error.userMessage === "An IDE provider is misconfigured.");
+const refused = function (broken) {
+    assert.throws(
+        () => descriptors.validate(broken),
+        (error) => error.code === "providerConfig" && error.userMessage === "An IDE provider is misconfigured."
+    );
 };
 // Returns a copy of the VS Code declaration whose first field has the given overrides applied.
-const withField = function(overrides) {
+const withField = function (overrides) {
     return Object.assign({}, vsCode, { fields: [Object.assign({}, vsCode.fields[0], overrides)] });
 };
 refused(null);
@@ -39,13 +42,24 @@ assert.equal(descriptors.validate(Object.assign({}, vsCode, { iconName: "dev.zed
 // Installation declarations must be nonempty, unique, valid, and complete.
 refused(Object.assign({}, vsCode, { installations: [] }));
 refused(Object.assign({}, vsCode, { installations: [{ type: "unknown", executable: "x" }] }));
-refused(Object.assign({}, vsCode, { installations: [{ type: "native", executable: "x" }, { type: "native", executable: "y" }] }));
+refused(
+    Object.assign({}, vsCode, {
+        installations: [
+            { type: "native", executable: "x" },
+            { type: "native", executable: "y" }
+        ]
+    })
+);
 refused(Object.assign({}, vsCode, { installations: [{ type: "native", executable: "" }] }));
 
 // Provider-specific package choices can omit Flatpak, as a Native/Snap-only provider would.
-const nativeAndSnap = Object.assign({}, vsCode, { installations: [
-    { type: "native", executable: "/opt/ide/bin/ide" },
-    { type: "snap", executable: "/usr/bin/snap", desktopId: "ide_ide" }
-] });
+const nativeAndSnap = Object.assign({}, vsCode, {
+    installations: [
+        { type: "native", executable: "/opt/ide/bin/ide" },
+        { type: "snap", executable: "/usr/bin/snap", desktopId: "ide_ide" }
+    ]
+});
 assert.equal(descriptors.validate(nativeAndSnap).installations.length, 2);
-refused(Object.assign({}, nativeAndSnap, { installations: [{ type: "snap", executable: "/usr/bin/snap", desktopId: 9 }] }));
+refused(
+    Object.assign({}, nativeAndSnap, { installations: [{ type: "snap", executable: "/usr/bin/snap", desktopId: 9 }] })
+);

@@ -7,7 +7,10 @@ const configuration = source("Helpers/ConfigurationRules.js");
 const existingId = "7b65f5c6-7284-47cf-9ce2-9a4a71a16571";
 
 // A folder saved as a plain path becomes an entry with its own unique identifier and the source type; converted entries are kept.
-const folders = migration.folders(["/home/u/code", { id: existingId, type: "localgit", folder: "/home/u/work" }, "/home/u/notes"], "localgit");
+const folders = migration.folders(
+    ["/home/u/code", { id: existingId, type: "localgit", folder: "/home/u/work" }, "/home/u/notes"],
+    "localgit"
+);
 assert.equal(folders.length, 3);
 assert.equal(folders[0].folder, "/home/u/code");
 assert.equal(folders[0].type, "localgit");
@@ -18,15 +21,26 @@ assert.deepEqual(Array.from(folders.slice(1, 2)), [{ id: existingId, type: "loca
 
 // An entry saved without an installation type takes its provider type's default; an entry that has one is unchanged.
 const defaults = { zed: "flatpak", vscode: "native" };
-const providers = migration.installations("providers", [
-    { id: existingId, type: "zed", name: "Zed" },
-    { id: existingId, type: "vscode", installationType: "snap" },
-    { id: existingId, type: "unknown", name: "Other" }
-], function(typeId) { return defaults[typeId]; });
+const providers = migration.installations(
+    "providers",
+    [
+        { id: existingId, type: "zed", name: "Zed" },
+        { id: existingId, type: "vscode", installationType: "snap" },
+        { id: existingId, type: "unknown", name: "Other" }
+    ],
+    function (typeId) {
+        return defaults[typeId];
+    }
+);
 assert.equal(providers[0].installationType, "flatpak");
 assert.equal(providers[1].installationType, "snap");
 assert.equal(providers[2].installationType, undefined, "an unknown type is left for validation to report");
 
 // Keys other than providers and folders are returned untouched.
 const usage = { "/tmp/a": { count: 1 } };
-assert.equal(migration.installations("usage", usage, function() { return "native"; }), usage);
+assert.equal(
+    migration.installations("usage", usage, function () {
+        return "native";
+    }),
+    usage
+);

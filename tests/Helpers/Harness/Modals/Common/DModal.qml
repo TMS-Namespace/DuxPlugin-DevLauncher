@@ -3,6 +3,7 @@ import QtQuick
 
 Item {
     id: root
+
     property string layerNamespace: ""
     property bool allowStacking: false
     property bool useOverlayLayer: false
@@ -11,15 +12,23 @@ Item {
     property real modalHeight: 300
     property Component content: null
     readonly property alias contentLoader: contentLoader
-    signal backgroundClicked
 
-    function open() { shouldBeVisible = true; }
-    function close() { shouldBeVisible = false; }
+    signal backgroundClicked()
+
+    function open() {
+        shouldBeVisible = true;
+    }
+
+    function close() {
+        shouldBeVisible = false;
+    }
 
     Loader {
         id: contentLoader
+
         sourceComponent: root.content
         width: root.modalWidth
         height: root.modalHeight
     }
+
 }

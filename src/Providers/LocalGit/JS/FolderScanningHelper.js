@@ -1,9 +1,9 @@
 // FolderScanningHelper.js - Build the find command that lists Git repositories below one folder, and read its output back.
-// Only the local Git folder source uses this module; it keeps no state and never runs anything itself.
 .pragma library
 .import "../../../Plugin/JS/Helpers/Config.js" as Config
 .import "../../../Plugin/JS/Helpers/ConfigurationRules.js" as ConfigurationRules
 .import "../../../Plugin/JS/Helpers/PathRules.js" as PathRules
+// Only the local Git folder source uses this module; it keeps no state and never runs anything itself.
 
 // Dependency and build folders that are never searched for repositories.
 var EXCLUDED_DIRECTORIES = Object.freeze(["node_modules", ".venv", "venv", "dist", "build", "target", ".cache"]);
@@ -12,8 +12,20 @@ var EXCLUDED_DIRECTORIES = Object.freeze(["node_modules", ".venv", "venv", "dist
 // inside each .git directory. -mindepth 1 keeps the folder itself out of the pruning rules, so a folder whose own name is an
 // excluded name is still searched. Results are NUL-separated, so no path can break the output apart.
 function findCommand(folder, depth) {
-    const command = ["timeout", Config.repositoryScanTimeout, "env", "LC_ALL=C", "find", folder, "-maxdepth", String(ConfigurationRules.repositoryDepth(depth)), "-mindepth", "1", "("];
-    EXCLUDED_DIRECTORIES.forEach(function(name, index) {
+    const command = [
+        "timeout",
+        Config.repositoryScanTimeout,
+        "env",
+        "LC_ALL=C",
+        "find",
+        folder,
+        "-maxdepth",
+        String(ConfigurationRules.repositoryDepth(depth)),
+        "-mindepth",
+        "1",
+        "("
+    ];
+    EXCLUDED_DIRECTORIES.forEach(function (name, index) {
         if (index) command.push("-o");
         command.push("-name", name);
     });

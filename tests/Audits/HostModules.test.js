@@ -13,7 +13,11 @@ function check(directory) {
         if (entry.isDirectory()) check(location);
         else if (location.endsWith(".qml")) {
             const relative = path.relative(harness, location);
-            if (relative.includes(path.sep)) assert.ok(fs.existsSync(path.join(host, relative)), relative + " does not exist in the installed Dux module");
+            if (relative.includes(path.sep))
+                assert.ok(
+                    fs.existsSync(path.join(host, relative)),
+                    relative + " does not exist in the installed Dux module"
+                );
         }
     }
 }

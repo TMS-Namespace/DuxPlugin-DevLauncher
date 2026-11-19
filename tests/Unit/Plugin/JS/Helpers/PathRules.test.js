@@ -18,3 +18,20 @@ for (const name of ["Värmland 日本語 العربية 😀", "quotes'\"#$%", "
 }
 assert.equal(paths.localPath("/tmp/invalid\0path"), "");
 assert.equal(paths.localPath("file:///tmp/invalid%00path"), "");
+
+assert.equal(paths.resourceType("/run/user/1000/gvfs/smb-share:server=host,share=team/project"), "share");
+const mounts = paths.shareMounts(
+    "1 0 0:1 / / rw - ext4 /dev/root rw\n2 1 0:2 / /mnt/team\\040share rw - cifs //host/team rw\n3 2 0:3 / /mnt/team\\040share/local rw - ext4 /dev/disk rw"
+);
+assert.equal(paths.resourceType("/mnt/team share/project", mounts), "share");
+assert.equal(paths.resourceType("/mnt/team share/local/item", mounts), "local");
+assert.equal(paths.resourceType("/mnt/team share2/project", mounts), "local");
+assert.equal(
+    paths.resourcePath({ scheme: "file", authority: "host", path: "/share/project" }),
+    "file://host/share/project"
+);
+assert.equal(paths.resourceType("vscode-remote://ssh-remote+host/project"), "remote");
+assert.equal(
+    paths.resourcePath({ scheme: "vscode-remote", authority: "ssh-remote+host", path: "/hello #world" }),
+    "vscode-remote://ssh-remote+host/hello%20%23world"
+);

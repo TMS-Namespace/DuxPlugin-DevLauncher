@@ -6,8 +6,11 @@ import Quickshell
 QtObject {
     // Keep the fallback command outside launcher decision logic.
     function launch(path) {
-        if (!path || !path.startsWith("/")) return false;
+        if (!path || !path.startsWith("/"))
+            return false;
+
         Quickshell.execDetached(["xdg-open", path]);
         return true;
     }
+
 }

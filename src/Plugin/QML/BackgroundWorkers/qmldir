@@ -1,3 +1,5 @@
 module DevLauncher.BackgroundWorkers
 ProviderValidator 1.0 ProviderValidator.qml
 DateRefresher 1.0 DateRefresher.qml
+
+MountScanner 1.0 MountScanner.qml

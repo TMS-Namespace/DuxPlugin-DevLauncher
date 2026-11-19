@@ -2,8 +2,8 @@
 import QtQuick
 import QtQuick.Window
 import Quickshell
-import qs.DCommon.Common as DuxCommon
 import qs.Common as HostCommon
+import qs.DCommon.Common as DuxCommon
 import qs.Services as DuxServices
 
 ShellRoot {
@@ -24,7 +24,15 @@ ShellRoot {
     property bool rankingVerified: false
     property var settings: ({
         "folders": [],
-        "providers": [{ "id": "6a54e4b5-6173-46bf-8bd1-8f3960905460", "type": "vscode", "name": "VS Code", "config": Quickshell.env("DEV_LAUNCHER_FIXTURE") + "/Code", "executable": Quickshell.env("DEV_LAUNCHER_CODE_PATH"), "shared": "", "extraArguments": ["--reuse-window", "--profile", "Work"] }],
+        "providers": [{
+            "id": "6a54e4b5-6173-46bf-8bd1-8f3960905460",
+            "type": "vscode",
+            "name": "VS Code",
+            "config": Quickshell.env("DEV_LAUNCHER_FIXTURE") + "/Code",
+            "executable": Quickshell.env("DEV_LAUNCHER_CODE_PATH"),
+            "shared": "",
+            "extraArguments": ["--reuse-window", "--profile", "Work"]
+        }],
         "defaultProvider": "6a54e4b5-6173-46bf-8bd1-8f3960905460",
         "usage": {
         }
@@ -45,7 +53,9 @@ ShellRoot {
     property var orchestratorChecks: null
 
     Component.onCompleted: {
-        HostCommon.SettingsData.pluginSettings = { devLauncher: root.settings };
+        HostCommon.SettingsData.pluginSettings = {
+            "devLauncher": root.settings
+        };
         DuxCommon.Host.files = fileMetadata;
         const launcherComponent = Qt.createComponent("file://" + Quickshell.env("DEV_LAUNCHER_PLUGIN_ROOT") + "/src/Plugin/QML/Launcher.qml");
         const orchestratorComponent = Qt.createComponent("file://" + Quickshell.env("DEV_LAUNCHER_PLUGIN_ROOT") + "/src/Plugin/QML/Services/ScanOrchestrator.qml");
@@ -57,18 +67,36 @@ ShellRoot {
         }
         const checksRoot = "file://" + Quickshell.env("DEV_LAUNCHER_PLUGIN_ROOT") + "/tests/Integration/Plugin/QML/";
         const checkPaths = ["SettingsPage.test.qml", "Launcher.test.qml", "Views/IdeSettings.test.qml", "Services/ScanOrchestrator.test.qml"];
-        const checkComponents = checkPaths.map(function(relativePath) { return Qt.createComponent(checksRoot + relativePath); });
-        if (checkComponents.some(function(component) { return component.status !== Component.Ready; })) {
-            console.warn("T:FAIL check component load " + checkComponents.map(function(component) { return component.errorString(); }).join(" | "));
+        const checkComponents = checkPaths.map(function(relativePath) {
+            return Qt.createComponent(checksRoot + relativePath);
+        });
+        if (checkComponents.some(function(component) {
+            return component.status !== Component.Ready;
+        })) {
+            console.warn("T:FAIL check component load " + checkComponents.map(function(component) {
+                return component.errorString();
+            }).join(" | "));
             Qt.quit();
-            return;
+            return ;
         }
-        settingsChecks = checkComponents[0].createObject(testWindow.contentItem, { fixture: root });
-        launcherChecks = checkComponents[1].createObject(testWindow.contentItem, { fixture: root });
-        providerChecks = checkComponents[2].createObject(testWindow.contentItem, { fixture: root });
-        orchestratorChecks = checkComponents[3].createObject(testWindow.contentItem, { fixture: root });
-        settingsPage = settingsComponent.createObject(testWindow.contentItem, { "width": 1000 });
-        if (!settingsChecks.initialize(settingsComponent)) return;
+        settingsChecks = checkComponents[0].createObject(testWindow.contentItem, {
+            "fixture": root
+        });
+        launcherChecks = checkComponents[1].createObject(testWindow.contentItem, {
+            "fixture": root
+        });
+        providerChecks = checkComponents[2].createObject(testWindow.contentItem, {
+            "fixture": root
+        });
+        orchestratorChecks = checkComponents[3].createObject(testWindow.contentItem, {
+            "fixture": root
+        });
+        settingsPage = settingsComponent.createObject(testWindow.contentItem, {
+            "width": 1000
+        });
+        if (!settingsChecks.initialize(settingsComponent))
+            return ;
+
         launcher = launcherComponent.createObject(testWindow.contentItem, {
             "pluginService": pluginService
         });
@@ -78,13 +106,13 @@ ShellRoot {
         if (!orchestrator || orchestrator.scanRunning || orchestrator.lastScanAt !== 0 || orchestrator.notificationFolders.length !== 0) {
             console.warn("T:FAIL orchestrator started scanning without a search");
             Qt.quit();
-            return;
+            return ;
         }
         launcher.getItems("sample");
         if (!orchestrator.scanRunning || !launcher.lastRequest) {
             console.warn("T:FAIL search did not start scan on demand");
             Qt.quit();
-            return;
+            return ;
         }
         launcher.lastRequest = 0;
         launcher.lastQuery = null;
@@ -101,25 +129,25 @@ ShellRoot {
         visible: true
         width: 1
         height: 1
-        Image { id: compositePreview; sourceSize.width: 64; sourceSize.height: 64 }
-        Image { id: repositoryPreview; sourceSize.width: 64; sourceSize.height: 64 }
+
+        Image {
+            id: compositePreview
+
+            sourceSize.width: 64
+            sourceSize.height: 64
+        }
+
+        Image {
+            id: repositoryPreview
+
+            sourceSize.width: 64
+            sourceSize.height: 64
+        }
+
     }
 
-    QtObject {
+    FileMetadataStub {
         id: fileMetadata
-        property bool connected: true
-        property int requests: 0
-        property double modifiedAt: Date.now() - 2 * 3600000
-        function stat(path, callback) {
-            requests++;
-            Qt.callLater(function() {
-                if (path.endsWith("missing-project.js")) {
-                    callback({ "error": "No such file or directory", "code": "ENOENT" });
-                    return;
-                }
-                callback({ "entry": { "iconName": path.endsWith(".code-workspace") ? "missing-workspace-icon" : path.endsWith(".js") ? "text-x-javascript" : path.endsWith(".yaml") ? "text-x-yaml" : "folder-special", "mtimeMs": path.endsWith("old-project.js") ? Date.now() - 2 * 365 * 86400000 : modifiedAt } });
-            });
-        }
     }
 
     // Supply the same plugin service methods and signals that Dux passes to both surfaces.

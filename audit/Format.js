@@ -1,41 +1,69 @@
-// Format.js - Format source only when the formatter returns complete, nonempty output.
+// Format.js - Format the plugin's QML and JavaScript sources in place, or check them without writing anything.
+// Rules: QML goes through QmlFormatter, which keeps the constructs this qmlformat build corrupts out of its reach, and every
+// result is verified against its original by QmlVerifier before it may be written; a file that fails is reported and left unchanged.
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { formatQmlStable } = require("./QmlFormatter.js");
+const { verifyQml } = require("./QmlVerifier.js");
 
-// Gather only plugin QML and JavaScript sources.
+// The folders whose sources are formatted together.
+const sourceFolders = ["src", "tests", "audit"];
+
+// Gather the JavaScript files under one folder, recursively.
 function files(directory) {
-    return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
         const location = path.join(directory, entry.name);
-        return entry.isDirectory() ? files(location) : /\.(qml|js)$/.test(location) ? [location] : [];
+        return entry.isDirectory() ? files(location) : /\.(js|qml)$/.test(location) ? [location] : [];
     });
 }
 
-// Reject empty output before any file can be replaced.
-function formatted(file) {
-    const qml = file.endsWith(".qml");
-    const source = fs.readFileSync(file, "utf8");
-    const directives = qml ? [] : source.split("\n").filter(line => /^\.(pragma|import)\b/.test(line));
-    const body = qml ? undefined : source.split("\n").filter(line => !/^\.(pragma|import)\b/.test(line)).join("\n");
-    const result = spawnSync(qml ? "qmlformat" : "prettier", qml ? [file] : ["--parser", "babel"], { encoding: "utf8", input: body });
-    if (result.status !== 0 || !result.stdout || !result.stdout.trim())
-        throw new Error("Formatter produced no valid output for " + file + ": " + (result.stderr || result.error || "empty output"));
-    if (!qml) {
-        const lines = result.stdout.split("\n");
-        const header = lines.shift();
-        return [header].concat(directives, lines).join("\n");
-    }
-    const header = source.split("\n")[0];
-    const output = result.stdout.split("\n").filter(line => line !== header);
-    return [header].concat(output).join("\n");
+// Format one JavaScript module with prettier, keeping its .pragma and .import directives directly after the header comment.
+function formattedJavaScript(source) {
+    const lines = source.split("\n");
+    const directives = lines.filter((line) => /^\.(pragma|import)\b/.test(line));
+    const body = lines.filter((line) => !/^\.(pragma|import)\b/.test(line)).join("\n");
+    const result = spawnSync("prettier", ["--parser", "babel"], { encoding: "utf8", input: body });
+    if (result.status !== 0 || !result.stdout.trim())
+        throw new Error("prettier produced no valid output: " + (result.stderr || result.error || "empty output"));
+    const formatted = result.stdout.split("\n");
+    const header = formatted.shift();
+    return [header].concat(directives, formatted).join("\n");
 }
 
-const root = path.resolve(__dirname, "..");
-const changes = files(path.join(root, "src")).map(file => ({ file, output: formatted(file) }));
-const check = process.argv.includes("--check");
-for (const change of changes) {
-    if (fs.readFileSync(change.file, "utf8") === change.output) continue;
-    if (check) throw new Error("Formatting differs: " + change.file);
-    fs.writeFileSync(change.file, change.output);
+// Return the formatted text of one file, refusing a QML result whose meaning differs from the original.
+function formatted(file) {
+    const source = fs.readFileSync(file, "utf8");
+    if (!file.endsWith(".qml")) return formattedJavaScript(source);
+    const output = formatQmlStable(file, source);
+    const problems = verifyQml(source, output);
+    if (problems.length) throw new Error("QML formatting changes the meaning of " + file + ": " + problems[0]);
+    return output;
 }
-console.log(check ? "Formatting passed" : "Formatting complete");
+
+// Format or check every source folder, writing only the files that change unless the check mode is requested.
+function main(argv) {
+    const root = path.resolve(__dirname, "..");
+    const check = argv.includes("--check");
+    const changes = [];
+    const refusals = [];
+    for (const folder of sourceFolders)
+        for (const file of files(path.join(root, folder))) {
+            try {
+                changes.push({ file, output: formatted(file) });
+            } catch (error) {
+                refusals.push(path.relative(root, file) + ": " + error.message.slice(0, 200));
+            }
+        }
+    if (refusals.length)
+        throw new Error("Formatting refused for " + refusals.length + " file(s):\n" + refusals.join("\n"));
+    for (const change of changes) {
+        if (fs.readFileSync(change.file, "utf8") === change.output) continue;
+        if (check) throw new Error("Formatting differs: " + change.file);
+        fs.writeFileSync(change.file, change.output);
+    }
+    console.log(check ? "Formatting passed" : "Formatting complete");
+}
+
+if (require.main === module) main(process.argv.slice(2));
+module.exports = { formattedJavaScript };

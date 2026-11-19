@@ -3,8 +3,7 @@
 
 // Keep error classification independent of paths and platform-specific wording.
 function repository(exitCode, errorText) {
-    if (exitCode === 124 || exitCode === 137)
-        return "Repository scan timed out. Try a narrower folder.";
+    if (exitCode === 124 || exitCode === 137) return "Repository scan timed out. Try a narrower folder.";
     const output = String(errorText || "").toLowerCase();
     if (output.includes("permission denied"))
         return "Repository scan could not read part of the folder (permission denied).";
@@ -20,11 +19,21 @@ function forFolder(path, exitCode, errorText) {
 
 // Explain that a folder has more repositories than one scan lists, so only the first ones are shown.
 function limitReached(path, repositoryLimit) {
-    return "Repository folder " + path + " has more than " + repositoryLimit + " repositories; only the first " + repositoryLimit + " are listed.";
+    return (
+        "Repository folder " +
+        path +
+        " has more than " +
+        repositoryLimit +
+        " repositories; only the first " +
+        repositoryLimit +
+        " are listed."
+    );
 }
 
 // Pick the latest error recorded for one source, for display in that source's settings row.
 function forProvider(providerId, failures) {
-    const match = (failures || []).find(function(failure) { return failure.providerId === providerId; });
+    const match = (failures || []).find(function (failure) {
+        return failure.providerId === providerId;
+    });
     return match ? match.message : "";
 }

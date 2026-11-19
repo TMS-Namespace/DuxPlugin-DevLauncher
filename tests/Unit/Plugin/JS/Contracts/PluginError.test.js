@@ -10,7 +10,10 @@ assert.equal(friendly.message, "Friendly text.: raw detail");
 assert.equal(friendly.retryable, false);
 assert.equal(friendly.name, "PluginError");
 assert.equal(friendly.field, "");
-assert.equal(new pluginError.PluginError(pluginError.Code.PROVIDER_CONFIG, "Invalid.", "detail", "executable").field, "executable");
+assert.equal(
+    new pluginError.PluginError(pluginError.Code.PROVIDER_CONFIG, "Invalid.", "detail", "executable").field,
+    "executable"
+);
 
 // An existing PluginError passes through unchanged.
 assert.equal(pluginError.from(friendly), friendly);

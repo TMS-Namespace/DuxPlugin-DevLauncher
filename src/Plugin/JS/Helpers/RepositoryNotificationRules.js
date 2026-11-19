@@ -3,13 +3,17 @@
 
 // Only a newly selected root can trigger a folder error notification.
 function newlyAdded(previous, current) {
-    return (current || []).filter(function(folder) { return !(previous || []).includes(folder); });
+    return (current || []).filter(function (folder) {
+        return !(previous || []).includes(folder);
+    });
 }
 
 // Keep pending additions unique and drop folders removed before their scan begins.
 function pending(previousPending, added, current) {
     const combined = (previousPending || []).concat(added || []);
-    return combined.filter(function(folder, index) { return (current || []).includes(folder) && combined.indexOf(folder) === index; });
+    return combined.filter(function (folder, index) {
+        return (current || []).includes(folder) && combined.indexOf(folder) === index;
+    });
 }
 
 // Notification policy for scan errors of folder sources:
@@ -19,5 +23,11 @@ function pending(previousPending, added, current) {
 //   Those errors appear only in the settings page, next to the folder or IDE, and in the development log.
 // Errors are matched by source identifier, so two folders with the same path are still told apart.
 function messages(errors, newlySelectedIds) {
-    return (errors || []).filter(function(failure) { return (newlySelectedIds || []).includes(failure.providerId); }).map(function(failure) { return failure.message; });
+    return (errors || [])
+        .filter(function (failure) {
+            return (newlySelectedIds || []).includes(failure.providerId);
+        })
+        .map(function (failure) {
+            return failure.message;
+        });
 }

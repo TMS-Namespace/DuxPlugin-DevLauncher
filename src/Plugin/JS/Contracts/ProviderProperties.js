@@ -17,4 +17,6 @@ var ProviderProperties = class ProviderProperties {
 };
 
 // Expose the empty declaration to contributor checks.
-function create() { return new ProviderProperties(); }
+function create() {
+    return new ProviderProperties();
+}

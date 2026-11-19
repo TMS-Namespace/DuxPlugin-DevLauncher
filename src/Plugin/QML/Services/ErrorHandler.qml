@@ -1,8 +1,9 @@
 // ErrorHandler.qml - Rate-limit friendly failure notifications from all plugin surfaces.
+pragma Singleton
+
 import "../../JS/Helpers/Config.js" as Config
 import QtQml
 import qs.Services
-pragma Singleton
 
 QtObject {
     property double lastNotificationAt: 0

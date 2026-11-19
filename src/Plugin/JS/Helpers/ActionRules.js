@@ -5,13 +5,29 @@
 // Offer each configured installation by alias and the appropriate desktop folder action.
 function actions(item, providers) {
     if (!item || !item.path) return [];
-    const choices = (providers || []).map(function(provider) {
-        return { text: "Open with " + provider.name, icon: "code", operation: "provider", provider: provider.id };
-    });
+    const remote = PathRules.resourceType(item.path) === "remote";
+    const sources = Array.isArray(item.sourceProviders) ? item.sourceProviders : [];
+    const choices = (providers || [])
+        .filter(function (provider) {
+            return !remote || sources.includes(provider.id);
+        })
+        .map(function (provider) {
+            return { text: "Open with " + provider.name, icon: "code", operation: "provider", provider: provider.id };
+        });
+    if (remote)
+        return choices.concat([
+            { text: "Copy path", icon: "content_copy", operation: "copy" },
+            { text: "Details", icon: "info", operation: "details" }
+        ]);
     const isFolder = item.kind === "folder" || item.kind === "repository";
     return choices.concat([
         { text: "Open with system default", icon: "open_in_new", operation: "system" },
-        { text: isFolder ? "Open folder" : "Open containing folder", icon: "folder_open", operation: "location", path: isFolder ? item.path : PathRules.parentDirectory(item.path) },
+        {
+            text: isFolder ? "Open folder" : "Open containing folder",
+            icon: "folder_open",
+            operation: "location",
+            path: isFolder ? item.path : PathRules.parentDirectory(item.path)
+        },
         { text: "Copy path", icon: "content_copy", operation: "copy" },
         { text: "Details", icon: "info", operation: "details" }
     ]);
@@ -31,5 +47,18 @@ function details(item, modifiedAt) {
     const modified = timestamp(modifiedAt);
     const providerHistoryDate = timestamp(item.openedAt);
     const recent = timestamp(item.recent);
-    return "Path: " + item.path + "\nSource: " + sources + "\nModified: " + modified + "\nProvider history date (approx.): " + providerHistoryDate + "\nLast recorded use (approx.): " + recent + "\nDev Launcher opens: " + (Number(item.count) || 0);
+    return (
+        "Path: " +
+        item.path +
+        "\nSource: " +
+        sources +
+        "\nModified: " +
+        modified +
+        "\nProvider history date (approx.): " +
+        providerHistoryDate +
+        "\nLast recorded use (approx.): " +
+        recent +
+        "\nDev Launcher opens: " +
+        (Number(item.count) || 0)
+    );
 }

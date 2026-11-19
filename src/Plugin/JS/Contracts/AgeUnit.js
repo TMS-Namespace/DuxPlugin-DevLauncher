@@ -7,5 +7,9 @@ var Years = "years";
 var values = Object.freeze([Days, Weeks, Months, Years]);
 
 // Accept only units offered by the settings dropdown.
-function isValid(value) { return values.indexOf(value) >= 0; }
-function label(value) { return isValid(value) ? value.charAt(0).toUpperCase() + value.slice(1) : ""; }
+function isValid(value) {
+    return values.indexOf(value) >= 0;
+}
+function label(value) {
+    return isValid(value) ? value.charAt(0).toUpperCase() + value.slice(1) : "";
+}
