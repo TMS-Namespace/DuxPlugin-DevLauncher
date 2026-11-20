@@ -1,8 +1,8 @@
 // VSCodeRecents.qml - Read VS Code history sources and return normalized recent items.
+// Rules: One source is read at a time, each step has a watchdog, and a late answer from an earlier step is ignored. A source that cannot be read is skipped, and the previous cache is kept when no source can be read.
 import "../../../Plugin/JS/Helpers/PathRules.js" as PathRules
 import "../JS/VSCodeConstants.js" as Constants
 import "../JS/VSCodeHistoryPayload.js" as HistoryPayload
-import "../JS/VSCodeReadCommands.js" as ReadCommands
 import QtQml
 import QtQuick
 import Quickshell
@@ -15,6 +15,8 @@ QtObject {
     property var api: null
     property var properties: null
     property var callback: null
+    // The plugin's file service stat, which answers with the Dux stat result for one path.
+    property var statPath: null
     property var sources: []
     property int sourceIndex: 0
     // True when a location was readable but held no items; it is the answer if no other location has any.
@@ -26,32 +28,39 @@ QtObject {
     property string lastError: ""
     // Raw failure text for the log. It goes back through the callback, so the provider never imports plugin services.
     property string lastDetails: ""
+    // Counts the steps started, so an answer from an earlier step is recognised and ignored.
+    property int stepId: 0
+    // The file reader of the current JSON step, removed once its answer arrives.
+    property var reader: null
     property HistoryDatabase database
+    // Stops a read whose step never answers. It restarts for each step and stops when an answer arrives.
     property Timer watchdog
-    // The process of the current read step; each step creates one.
-    property var worker: null
-    property Component workerType
+    // The template for the FileView that reads one JSON history file.
+    property Component textReaderType
 
-    // Give up on the current read because its process did not answer in time, and move on to the next source.
-    // A late answer from the abandoned process is ignored, because the read is no longer running.
+    // Give up on the current read because its step did not answer in time, and move on to the next source.
+    // The step counter moves on, so a late answer from the abandoned step is ignored.
     function abandonRead() {
         if (!running)
             return ;
 
         watchdog.stop();
+        stepId++;
+        releaseReader();
         lastError = "IDE history read did not finish.";
         lastDetails = "Watchdog stopped a history read that produced no answer.";
         trySource();
     }
 
     // Ask this provider's API for its preferred sources and read one at a time.
-    function read(providerApi, providerProperties, completed) {
+    function read(providerApi, providerProperties, completed, statFunction) {
         if (running)
             return false;
 
         api = providerApi;
         properties = providerProperties;
         callback = completed;
+        statPath = statFunction;
         sources = api.sources(properties);
         sourceIndex = 0;
         sawEmptySnapshot = false;
@@ -76,28 +85,108 @@ QtObject {
         sourcePath = PathRules.expand(source.path, Quickshell.env("HOME"), Quickshell.env("XDG_CONFIG_HOME"));
         sourceKey = source.key;
         if (sourcePath.endsWith(".json"))
-            startProcess(ReadCommands.json(sourcePath), "json");
+            startStep("json");
         else
-            startProcess(ReadCommands.modifiedTime(sourcePath), "sqliteStat");
+            startStep("sqliteStat");
     }
 
-    // Run one bounded read process for this step. The previous step's process is stopped and destroyed after this call,
-    // so a late answer from it cannot be mistaken for the answer of this step.
-    function startProcess(command, nextPhase) {
+    // Start one step: a file read for a JSON source, or a stat for a database whose modification time is needed.
+    function startStep(nextPhase) {
         phase = nextPhase;
+        stepId++;
         watchdog.restart();
-        const previous = worker;
-        worker = workerType.createObject(root, {
-            "command": command,
-            "owner": root
-        });
-        worker.running = true;
-        if (previous) {
-            previous.running = false;
-            Qt.callLater(function() {
-                previous.destroy();
+        const current = stepId;
+        if (nextPhase === "json") {
+            releaseReader();
+            reader = textReaderType.createObject(root, {
+                "owner": root,
+                "step": current,
+                "path": sourcePath
             });
+            return ;
         }
+        if (!statPath) {
+            statAnswered(current, null);
+            return ;
+        }
+        statPath(sourcePath, function(result) {
+            root.statAnswered(current, result);
+        });
+    }
+
+    // Destroy the JSON reader after its answer has been handled, so no late signal reaches a released object.
+    function releaseReader() {
+        const finished = reader;
+        reader = null;
+        if (finished)
+            Qt.callLater(function() {
+            finished.destroy();
+        });
+
+    }
+
+    // A file read answer for the current step: the text of a JSON source, or nothing when it could not be read.
+    function textAnswered(step, succeeded, text) {
+        if (step !== stepId || !running)
+            return ;
+
+        watchdog.stop();
+        releaseReader();
+        processJson(succeeded, text);
+    }
+
+    // A stat answer for the current step. A missing or unreadable file gives no modification time.
+    function statAnswered(step, result) {
+        if (step !== stepId || !running)
+            return ;
+
+        watchdog.stop();
+        const entry = result && !result.error ? (result.entry || result) : null;
+        const modifiedAt = entry ? Number(entry.mtimeMs) || 0 : 0;
+        if (phase === "sqliteStat") {
+            if (entry) {
+                try {
+                    const value = HistoryPayload.decode(database.read(sourcePath, sourceKey), sourceKey, "sqlite");
+                    if (value) {
+                        finishHistory(value, modifiedAt);
+                        return ;
+                    }
+                } catch (caughtError) {
+                    lastDetails = String(caughtError);
+                    lastError = caughtError.userMessage || "Could not read IDE history database.";
+                }
+            }
+            trySource();
+        } else {
+            finishHistory(history, modifiedAt);
+        }
+    }
+
+    // The JSON text is decoded; a decoded history is then dated by a stat of the same file.
+    function processJson(succeeded, text) {
+        if (succeeded) {
+            try {
+                history = HistoryPayload.decode(text, sourceKey, "json");
+                if (history) {
+                    stepId++;
+                    phase = "jsonStat";
+                    watchdog.restart();
+                    const current = stepId;
+                    if (!statPath) {
+                        statAnswered(current, null);
+                        return ;
+                    }
+                    statPath(sourcePath, function(result) {
+                        root.statAnswered(current, result);
+                    });
+                    return ;
+                }
+            } catch (caughtError) {
+                lastDetails = String(caughtError);
+                lastError = caughtError.userMessage || "Could not parse IDE history.";
+            }
+        }
+        trySource();
     }
 
     // A non-empty snapshot is the answer. An empty one may be a cleared list, but an older location may still hold history,
@@ -120,47 +209,6 @@ QtObject {
         trySource();
     }
 
-    // Interpret the answer according to this provider's selected source format.
-    function processAnswer(exitCode, output) {
-        // An answer for a read that was already abandoned or finished is ignored.
-        if (!running)
-            return ;
-
-        watchdog.stop();
-        if (phase === "sqliteStat") {
-            if (exitCode === 0) {
-                try {
-                    const value = HistoryPayload.decode(database.read(sourcePath, sourceKey), sourceKey, "sqlite");
-                    if (value) {
-                        finishHistory(value, Number(output.trim()) * 1000);
-                        return ;
-                    }
-                } catch (caughtError) {
-                    lastDetails = String(caughtError);
-                    lastError = caughtError.userMessage || "Could not read IDE history database.";
-                }
-            }
-            trySource();
-        } else if (phase === "json") {
-            if (exitCode === 0) {
-                try {
-                    history = HistoryPayload.decode(output, sourceKey, "json");
-                    if (history) {
-                        startProcess(ReadCommands.modifiedTime(sourcePath), "jsonStat");
-                        return ;
-                    }
-                } catch (caughtError) {
-                    lastDetails = String(caughtError);
-                    lastError = caughtError.userMessage || "Could not parse IDE history.";
-                }
-            }
-            trySource();
-        } else {
-            const seconds = exitCode === 0 ? Number(output.trim()) : 0;
-            finishHistory(history, seconds > 0 ? seconds * 1000 : 0);
-        }
-    }
-
     // Release the current callback before the orchestrator starts another provider. A failed read says so, so the caller
     // keeps what it already holds; a read that succeeded or has no answer to keep passes true.
     function finish(records, message, details, succeeded) {
@@ -168,26 +216,9 @@ QtObject {
         callback = null;
         running = false;
         watchdog.stop();
-        if (worker)
-            worker.running = false;
-
+        releaseReader();
         completed(records, message, details || "", succeeded !== false);
     }
-
-    // Accept one step's answer only when it is the current step and both of its streams have arrived.
-    function settleStep(step) {
-        if (step !== worker || !running)
-            return ;
-
-        if (!step.hasExited || !step.hasStreamed)
-            return ;
-
-        processAnswer(step.exitStatus, step.outputText);
-    }
-
-    database: HistoryDatabase {
-    }
-    // Stops a read whose process never answers. It restarts for each process and stops when an answer arrives.
 
     watchdog: Timer {
         interval: Constants.READ_WATCHDOG_MILLISECONDS
@@ -195,33 +226,21 @@ QtObject {
         onTriggered: root.abandonRead()
     }
 
-    workerType: Component {
-        Process {
-            id: historyProcess
-
-            property string outputText: ""
-            property bool hasExited: false
-            property bool hasStreamed: false
-            property int exitStatus: 0
-            // The reader that created this step; it receives the answer, and ignores it when the step is no longer current.
+    textReaderType: Component {
+        FileView {
             property var owner: null
+            property int step: 0
 
-            onExited: function(exitCode) {
-                exitStatus = exitCode;
-                hasExited = true;
-                owner.settleStep(historyProcess);
+            printErrors: false
+            onLoaded: owner.textAnswered(step, true, text())
+            onLoadFailed: function(error) {
+                owner.textAnswered(step, false, "");
             }
-
-            stdout: StdioCollector {
-                onStreamFinished: {
-                    historyProcess.outputText = text;
-                    historyProcess.hasStreamed = true;
-                    historyProcess.owner.settleStep(historyProcess);
-                }
-            }
-
         }
 
+    }
+
+    database: HistoryDatabase {
     }
 
 }

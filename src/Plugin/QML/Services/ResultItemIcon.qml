@@ -2,6 +2,8 @@
 // Rules: Each SVG is read once, kept within a size and count bound, and a failed or oversized SVG read is stored as empty and is not retried while its entry stays cached.
 import "../../JS/Helpers/Config.js" as Config
 import "../../JS/Helpers/ExecutableIconRules.js" as ExecutableIconRules
+import "../../JS/Helpers/IconComposition.js" as IconComposition
+import "../../JS/Helpers/IconMemo.js" as IconMemo
 import "../../JS/Helpers/IconRules.js" as IconRules
 import "../../JS/Helpers/PathRules.js" as PathRules
 import QtQml
@@ -36,6 +38,18 @@ QtObject {
     property var svgQueue: []
     property int activeSvgReads: 0
     property int revision: 0
+    // The composed icons already built, keyed by everything they depend on; bounded by Config.maxIconMemoEntries.
+    property var iconMemo: ({
+    })
+    property var iconMemoOrder: []
+    // The badge and marker pieces, built ahead of time: the markers once, each IDE badge when its icon first appears.
+    property var badgePieces: ({
+        "values": ({
+        })
+    })
+    property var preparedBadges: ({
+    })
+    property bool markersPrepared: false
     // The last badge resolved for each source IDE, with the key it was resolved under.
     property var badgeMemo: ({
     })
@@ -187,9 +201,15 @@ QtObject {
         if (showBadges === false) {
             const iconName = FileMetadataService.iconNameFor(path, kind);
             const appearance = kind !== "file" && PathRules.resourceType(path) !== "remote" && Host.appearance ? Host.appearance.lookup(path) : null;
-            return IconRules.descriptor(kind === "repository" ? "folder" : kind, appearance && appearance.icon ? appearance.icon : iconName, "", "", "", "");
+            const plain = IconRules.descriptor(kind === "repository" ? "folder" : kind, appearance && appearance.icon ? appearance.icon : iconName, "", "", "", false, badgePieces);
+            return {
+                "icon": plain.icon,
+                "iconType": plain.iconType
+            };
         }
         const sources = item.sourceProviders || (item.sourceProvider ? [item.sourceProvider] : []);
+        // A remote item, whose path is a URI rather than a local path, gets the remote marker so it reads differently from a local one.
+        const remote = PathRules.resourceType(path) === "remote";
         const badgePaths = [];
         for (const sourceId of sources) {
             const badge = badgeFor(sourceId);
@@ -203,8 +223,12 @@ QtObject {
         const iconName = FileMetadataService.iconNameFor(path, kind);
         const appearance = kind !== "file" && PathRules.resourceType(path) !== "remote" && Host.appearance ? Host.appearance.lookup(path) : null;
         const chosenName = appearance && appearance.icon ? appearance.icon : iconName;
+        const memoKey = [path, kind, chosenName, remote, badgePaths.join("|"), revision, DesktopEntries.applications.values.length].join("\n");
+        if (Object.prototype.hasOwnProperty.call(iconMemo, memoKey))
+            return iconMemo[memoKey];
+
         let resolvedPath = "";
-        if (kind === "repository" || badgePaths.length) {
+        if (kind === "repository" || badgePaths.length || remote) {
             for (const candidate of IconRules.iconCandidates(kind, chosenName)) {
                 const candidatePath = Paths.resolveIconPath(candidate);
                 if (!candidatePath || (svgContents[candidatePath] === "" && candidatePath.toLowerCase().endsWith(".svg")))
@@ -214,21 +238,67 @@ QtObject {
                 break;
             }
         }
-        const baseSvg = kind === "repository" || badgePaths.length ? svgFor(resolvedPath) : "";
+        const baseSvg = kind === "repository" || badgePaths.length || remote ? svgFor(resolvedPath) : "";
         const readyPaths = [];
-        const badgeSvgs = [];
         for (const badgePath of badgePaths) {
             const content = svgFor(badgePath);
             if (badgePath.endsWith(".svg") && !content)
                 continue;
 
             readyPaths.push(badgePath);
-            badgeSvgs.push(content);
         }
+        // An SVG that is still loading makes the result provisional, so it is recomputed when the revision changes.
+        const waiting = (resolvedPath.endsWith(".svg") && svgContents[resolvedPath] === undefined) || badgePaths.some(function(badgePath) {
+            return badgePath.endsWith(".svg") && svgContents[badgePath] === undefined;
+        });
         if (resolvedPath.endsWith(".svg") && !baseSvg)
             resolvedPath = "";
 
-        return IconRules.descriptor(kind, chosenName, resolvedPath, readyPaths, baseSvg, badgeSvgs);
+        const built = IconRules.descriptor(kind, chosenName, resolvedPath, readyPaths, baseSvg, remote, badgePieces);
+        const descriptor = {
+            "icon": built.icon,
+            "iconType": built.iconType
+        };
+        // Only a complete icon is remembered: one missing a piece is shown as it is, and is built again once its piece exists.
+        if (!waiting && built.complete)
+            IconMemo.rememberBounded(iconMemo, iconMemoOrder, memoKey, descriptor, Config.maxIconMemoEntries);
+
+        return descriptor;
+    }
+
+    // Build the badge pieces ahead of time. The Git and remote markers are built once. An IDE badge is built when its icon first
+    // appears among the providers, and dropped when no provider uses it any more. Nothing is built for an individual result.
+    function refreshBadges() {
+        if (!markersPrepared) {
+            IconComposition.prepareMarkers(badgePieces);
+            markersPrepared = true;
+        }
+        const wanted = ({
+        });
+        for (const sourceId of Object.keys(ProvidersManager.handlers)) {
+            const path = badgeFor(sourceId);
+            if (!path)
+                continue;
+
+            wanted[path] = true;
+            if (preparedBadges[path])
+                continue;
+
+            // svgFor starts the read of a badge file that is not loaded yet, and returns its text once it is.
+            const content = svgFor(path);
+            if (path.toLowerCase().endsWith(".svg") && !content)
+                continue;
+
+            IconComposition.prepareBadge(badgePieces, path, content);
+            preparedBadges[path] = true;
+        }
+        for (const path of Object.keys(preparedBadges)) {
+            if (wanted[path])
+                continue;
+
+            IconComposition.dropBadge(badgePieces, path);
+            delete preparedBadges[path];
+        }
     }
 
     svgReaderType: Component {
@@ -246,6 +316,7 @@ QtObject {
         repeat: false
         onTriggered: {
             root.revision++;
+            root.refreshBadges();
             root.iconsChanged();
         }
     }

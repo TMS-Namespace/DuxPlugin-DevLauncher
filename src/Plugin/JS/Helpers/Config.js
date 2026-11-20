@@ -25,6 +25,8 @@ var repositoryScanTimeout = "15s";
 // Modification times are read in batches of this many paths, each batch with its own timeout.
 var statBatchSize = 200;
 var statBatchTimeout = "10s";
+// The environment of the scan and stat processes: LC_ALL=C keeps their diagnostics in English, so missing paths can be recognised.
+var commandEnvironment = { LC_ALL: "C" };
 // The refresher abandons a stat batch that has not answered by then; the batch itself is already bounded by its timeout.
 var statBatchWatchdogMilliseconds = 12000;
 // An item's approximate date is recomputed after this much time, so a scan does not repeat the date work for every item.
@@ -41,6 +43,8 @@ var maxIconQueue = maxResults;
 var maxIconEntries = 500;
 var maxMetadataEntries = 20000;
 var maxSvgEntries = 256;
+// The composed icons remembered for the launcher's visible results, each under its own key.
+var maxIconMemoEntries = 512;
 var maxSvgCharacters = 131072;
 var iconCacheMilliseconds = 300000;
 var iconLookupTimeoutMilliseconds = 3000;
@@ -63,5 +67,5 @@ var sourceBadgeOpacity = 0.6;
 var minIdeAliasLength = 3;
 var maxIdeAliasLength = 20;
 
-// Bound the mount-table lookup performed as part of each requested scan.
-var mountScanTimeout = "3s";
+// Bound the mount-table read performed as part of each requested scan.
+var mountScanMilliseconds = 3000;

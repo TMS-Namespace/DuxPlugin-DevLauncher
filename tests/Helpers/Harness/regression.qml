@@ -2,6 +2,7 @@
 import QtQuick
 import Quickshell
 import qs.Common as HostCommon
+import qs.DCommon.Common as DuxCommon
 import qs.Services as DuxServices
 
 ShellRoot {
@@ -44,6 +45,8 @@ ShellRoot {
         HostCommon.SettingsData.pluginSettings = {
             "devLauncher": root.settings
         };
+        // The same Dux file service stub as shell.qml, so history stats answer like Dux does.
+        DuxCommon.Host.files = fileMetadata;
         root.controllerComponent = Qt.createComponent("file://" + root.pluginRoot + "/src/Plugin/QML/Helpers/SettingsController.qml");
         root.launcherComponent = Qt.createComponent("file://" + root.pluginRoot + "/src/Plugin/QML/Launcher.qml");
         root.iconComponent = Qt.createComponent("file://" + root.pluginRoot + "/src/Plugin/QML/Services/ResultItemIcon.qml");
@@ -84,11 +87,17 @@ ShellRoot {
         });
     }
 
+    FileMetadataStub {
+        id: fileMetadata
+    }
+
     QtObject {
         id: pluginService
 
         signal pluginDataChanged(string pluginId)
         signal globalVarChanged(string pluginId, string name)
+        // Dux listens for this signal to search the launcher again.
+        signal requestLauncherUpdate(string pluginId)
 
         // Returns the saved value for the given setting name from the test settings, or the default when none is saved.
         function loadPluginData(pluginId, name, defaultValue) {

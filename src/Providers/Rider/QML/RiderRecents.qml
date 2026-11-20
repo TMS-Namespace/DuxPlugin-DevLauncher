@@ -1,5 +1,5 @@
-// RiderRecents.qml - Discover versioned Rider history files and read them with bounded processes.
-// Rules: Each external process runs alone under a timeout, and one unusable history file is reported without discarding the others.
+// RiderRecents.qml - Discover versioned Rider history files with one find, then read each one as text.
+// Rules: The find runs alone under a timeout; each history file is read by a FileView, and one unusable file is reported without discarding the others.
 import "../../../Plugin/JS/Helpers/PathRules.js" as PathRules
 import "../JS/RiderConstants.js" as Constants
 import "../JS/RiderHistory.js" as RiderHistory
@@ -8,7 +8,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// The Rider history reader: it finds recentSolutions.xml files, then reads each one in its own bounded process.
+// The Rider history reader: it finds recentSolutions.xml files, then reads each one as text.
 QtObject {
     id: root
 
@@ -25,11 +25,13 @@ QtObject {
     property var problems: []
     // The current step: find for the file search, or history for one file read.
     property string phase: ""
-    // The process object of the step that is running now.
+    // The find process, when one is running.
     property var worker: null
-    // The template for one bounded process; every step creates a fresh instance from it.
+    // The template for the find process; each search creates a fresh instance from it.
     property Component workerType
     property Timer watchdog
+    // The history file currently being read.
+    property FileView historyFile
 
     // Start one bounded find under the configured Rider root for recentSolutions.xml files, up to the configured depth.
     function read(providerApi, providerProperties, completed) {
@@ -45,14 +47,14 @@ QtObject {
         problems = [];
         running = true;
         const rootPath = PathRules.expand(api.sources(properties)[0].path, Quickshell.env("HOME"), Quickshell.env("XDG_CONFIG_HOME"));
-        start(["timeout", Constants.READ_TIMEOUT, "find", rootPath, "-maxdepth", String(Constants.CONFIG_SCAN_DEPTH), "-type", "f", "-name", "recentSolutions.xml", "-print0"], "find");
+        phase = "find";
+        start(["timeout", Constants.READ_TIMEOUT, "find", rootPath, "-maxdepth", String(Constants.CONFIG_SCAN_DEPTH), "-type", "f", "-name", "recentSolutions.xml", "-print0"]);
         return true;
     }
 
-    // Each step gets a fresh process, so a stopped worker cannot finish the next request.
-    function start(command, nextPhase) {
+    // Each search gets a fresh process, so a stopped worker cannot finish the next request.
+    function start(command) {
         const previous = worker;
-        phase = nextPhase;
         worker = workerType.createObject(root, {
             "command": command,
             "owner": root
@@ -67,29 +69,60 @@ QtObject {
         }
     }
 
-    // Wait for process exit and both streams. The file list must be usable; each history file is handled on its own,
-    // so one version folder that cannot be read is reported and skipped while the other versions still contribute.
+    // Wait for the find's exit and both streams. The file list must be usable; each history file is then read on its own.
     function settle(readProcess) {
-        if (!running || readProcess !== worker || !readProcess.hasExited || !readProcess.hasStreamed || !readProcess.hasErrorStreamed)
+        if (!running || phase !== "find" || readProcess !== worker || !readProcess.hasExited || !readProcess.hasStreamed || !readProcess.hasErrorStreamed)
             return ;
 
         watchdog.stop();
-        if (phase === "find") {
-            if (readProcess.exitStatus !== 0) {
-                finish(false, readProcess.errorText || "Rider history read failed.");
-                return ;
-            }
-            files = readProcess.outputText.split("\u0000").filter(Boolean);
-            if (!files.length || files.length > Constants.MAX_HISTORY_FILES) {
-                finish(false, "No usable Rider history files were found.");
-                return ;
-            }
-        } else if (readProcess.exitStatus !== 0) {
-            problems = problems.concat([readProcess.errorText || "A Rider history file could not be read."]);
+        if (readProcess.exitStatus !== 0) {
+            finish(false, readProcess.errorText || "Rider history read failed.");
+            return ;
+        }
+        files = readProcess.outputText.split("\u0000").filter(Boolean);
+        if (!files.length || files.length > Constants.MAX_HISTORY_FILES) {
+            finish(false, "No usable Rider history files were found.");
+            return ;
+        }
+        readNext();
+    }
+
+    // Read the next history file, or report when none is left. The read succeeds when at least one file was parsed.
+    function readNext() {
+        if (!files.length) {
+            finish(parsedFiles > 0 || !problems.length, problems.join("\n"));
+            return ;
+        }
+        const path = files[0];
+        files = files.slice(1);
+        phase = "history";
+        watchdog.restart();
+        loadFile(path);
+    }
+
+    // Start loading one file. Setting a new path starts the load itself, so reload is used only for the same path:
+    // a reload right after a path change would drop the load that is already running.
+    function loadFile(path) {
+        if (historyFile.path === path)
+            historyFile.reload();
+        else
+            historyFile.path = path;
+    }
+
+    // The answer for one history file: a file that cannot be read, or is too large, is reported and skipped.
+    function historyAnswered(succeeded, text) {
+        if (!running || phase !== "history")
+            return ;
+
+        watchdog.stop();
+        if (!succeeded) {
+            problems = problems.concat(["A Rider history file could not be read."]);
+        } else if (text.length > Constants.MAX_HISTORY_BYTES) {
+            problems = problems.concat(["A Rider history file is too large to read."]);
         } else {
             try {
                 records = records.concat(api.parseHistory({
-                    "text": readProcess.outputText,
+                    "text": text,
                     "home": Quickshell.env("HOME")
                 }, properties));
                 parsedFiles++;
@@ -97,22 +130,17 @@ QtObject {
                 problems = problems.concat([String(caughtError)]);
             }
         }
-        if (!files.length) {
-            // The read succeeds when at least one history file was read; it fails only when none could be used.
-            finish(parsedFiles > 0 || !problems.length, problems.join("\n"));
-            return ;
-        }
-        const path = files[0];
-        files = files.slice(1);
-        start(["timeout", Constants.READ_TIMEOUT, "head", "-c", String(Constants.MAX_HISTORY_BYTES + 1), "--", path], "history");
+        // The next file is loaded after this answer's handler returns, because a load started inside the handler is dropped.
+        Qt.callLater(root.readNext);
     }
 
-    // Report once and release the current process after its signal handler completes.
+    // Report once and release the current process and file after their signal handlers complete.
     function finish(succeeded, details) {
         if (!running)
             return ;
 
         running = false;
+        phase = "";
         watchdog.stop();
         const readProcess = worker;
         worker = null;
@@ -122,13 +150,26 @@ QtObject {
                 readProcess.destroy();
             });
         }
+        Qt.callLater(function() {
+            if (!running)
+                historyFile.path = "";
+
+        });
         const completed = callback;
         callback = null;
         completed(succeeded ? RiderHistory.merge(records) : [], succeeded ? "" : "Could not read Rider history. Check its configuration folder.", details, succeeded);
     }
 
+    historyFile: FileView {
+        printErrors: false
+        onLoaded: root.historyAnswered(true, text())
+        onLoadFailed: function(error) {
+            root.historyAnswered(false, "");
+        }
+    }
+
     workerType: Component {
-        // One bounded process for a single step, which reports its output and exit back to its owner.
+        // One bounded process for the file search, which reports its output and exit back to its owner.
         Process {
             id: readProcess
 
@@ -165,8 +206,8 @@ QtObject {
         }
 
     }
-    // Ends the read with a timeout failure when no step finishes within the watchdog interval.
 
+    // Ends the read with a timeout failure when no step finishes within the watchdog interval.
     watchdog: Timer {
         interval: Constants.READ_WATCHDOG_MILLISECONDS
         repeat: false

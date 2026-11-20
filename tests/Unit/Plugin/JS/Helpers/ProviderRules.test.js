@@ -28,3 +28,37 @@ for (const name of ["Abc", "A".repeat(20)]) {
     const declaration = vsCode.create(Object.assign({}, base, { name }));
     assert.equal(rules.assertDeclaration(declaration, api), true);
 }
+
+// An empty executable is refused unless the descriptor marks the installation as user-supplied.
+const vsCodeDescriptor = source("Providers/VSCode/JS/VSCodeDescriptor.js").create();
+const emptyExecutable = Object.assign({}, vsCodeProperties(), { executable: "" });
+function vsCodeProperties() {
+    return source("Providers/VSCode/JS/VSCodeProperties.js").create(
+        source("Providers/VSCode/JS/VSCodeProperties.js").defaultConfiguration()
+    );
+}
+assert.throws(
+    () => rules.assertDeclaration(emptyExecutable, api),
+    (error) => error.field === "executable",
+    "an empty executable is refused when no descriptor says the user supplies it"
+);
+assert.throws(
+    () => rules.assertDeclaration(emptyExecutable, api, vsCodeDescriptor),
+    (error) => error.field === "executable",
+    "an installation that is not user-supplied still refuses an empty executable"
+);
+const userSupplied = {
+    installations: [{ type: "native", executable: "", userExecutable: true }],
+    launchable: true,
+    fields: [],
+    dependents: {}
+};
+assert.equal(
+    rules.assertDeclaration(Object.assign({}, emptyExecutable, { installationType: "native" }), api, userSupplied),
+    true
+);
+assert.throws(
+    () => rules.assertDeclaration(Object.assign({}, vsCodeProperties(), { executable: "bad;rm" }), api, userSupplied),
+    (error) => error.field === "executable",
+    "a non-empty executable is still checked against the allowed characters"
+);

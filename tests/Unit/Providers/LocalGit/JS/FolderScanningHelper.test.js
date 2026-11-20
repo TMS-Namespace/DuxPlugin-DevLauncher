@@ -19,8 +19,7 @@ assert.equal(helper.repositoryRoots("/tmp/a/.git\u0000/tmp/b/.git\u0000/tmp/c/.g
 const command = helper.findCommand("/tmp/projects", 4);
 assert.equal(command[0], "timeout");
 assert.equal(command[1], defaults.repositoryScanTimeout);
-assert.equal(command[2], "env");
-assert.equal(command[3], "LC_ALL=C");
+assert.equal(command[2], "find");
 assert.equal(command[command.indexOf("-maxdepth") + 1], "4");
 assert.equal(command[command.indexOf("-mindepth") + 1], "1");
 assert.equal(

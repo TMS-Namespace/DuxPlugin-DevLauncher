@@ -1,4 +1,4 @@
-// NeoVimProperties.js - Validate and declare one NeoVim installation and the terminal that runs it.
+// NeoVimProperties.js - Validate and declare one NeoVim installation: its terminal command and its state folder.
 .pragma library
 .import "../../../Plugin/JS/Contracts/ProviderProperties.js" as Base
 .import "../../../Plugin/JS/Contracts/InstallationType.js" as InstallationType
@@ -6,20 +6,15 @@
 .import "../../../Plugin/JS/Helpers/ArgumentRules.js" as ArgumentRules
 .import "NeoVimConstants.js" as Constants
 .import "NeoVimDescriptor.js" as Descriptor
-.import "NeoVimTerminal.js" as Terminal
-// Rules: Checks one NeoVim installation and throws PluginError for an unsupported type, folder, or terminal; no I/O, QML types or logging.
+// Rules: Checks one NeoVim installation and throws PluginError for an unsupported type or an invalid folder; no I/O, QML types or logging.
 
-// One NeoVim installation as checked plain data: its executable, its state folder, and the terminal that shows it.
+// One NeoVim installation as checked plain data: its terminal command (the executable) and its state folder.
 var NeoVimProperties = class NeoVimProperties extends Base.ProviderProperties {
     // Convert saved provider settings into checked plain data; the installation type is always present (see the storage layer).
     constructor(configuration) {
         const values = configuration || {};
         const installationType = values.installationType;
-        if (
-            !Descriptor.create().installations.some(function (choice) {
-                return choice.type === installationType;
-            })
-        )
+        if (!Descriptor.create().installations.some((choice) => choice.type === installationType))
             throw new PluginError.PluginError(
                 PluginError.Code.PROVIDER_CONFIG,
                 "This installation type is not supported by this provider.",
@@ -34,22 +29,16 @@ var NeoVimProperties = class NeoVimProperties extends Base.ProviderProperties {
                 stateDirectory,
                 "config"
             );
-        const terminal = values.terminal || "";
-        if (!/^(\/|~\/)[^\u0000]*$/.test(terminal) || !Terminal.switchesFor(terminal))
-            throw new PluginError.PluginError(
-                PluginError.Code.PROVIDER_CONFIG,
-                "Choose a supported terminal emulator.",
-                terminal,
-                "terminal"
-            );
+        // An empty terminal command is kept: the default configuration must stay valid, and saving refuses an empty value through the shared check.
+        const terminalCommand = String(values.executable || "").trim();
         super({
             providerType: Constants.PROVIDER_TYPE,
             installationType: installationType,
             providerId: values.id || "",
             name: values.name || "",
-            executable: values.executable || "",
+            executable: terminalCommand,
             extraArguments: ArgumentRules.validate(values.extraArguments || []),
-            settings: { stateDirectory: stateDirectory, terminal: terminal }
+            settings: { stateDirectory: stateDirectory }
         });
     }
 };
@@ -59,16 +48,15 @@ function create(configuration) {
     return new NeoVimProperties(configuration);
 }
 
-// Supply the conventional defaults for a new NeoVim installation.
+// Supply the defaults for a new NeoVim installation: the user enters the terminal command, so it starts empty.
 function defaultConfiguration() {
     return {
         id: Constants.DEFAULT_PROVIDER_ID,
         type: Constants.PROVIDER_TYPE,
         installationType: InstallationType.Native,
         name: Constants.DEFAULT_NAME,
-        executable: Constants.DEFAULT_EXECUTABLE,
+        executable: "",
         config: Constants.DEFAULT_STATE_DIRECTORY,
-        terminal: Constants.DEFAULT_TERMINAL,
         extraArguments: []
     };
 }

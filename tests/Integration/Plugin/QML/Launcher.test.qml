@@ -68,9 +68,10 @@ Item {
                 launchCheck.restart();
                 return ;
             }
+            // Four Dux stat requests: three icon lookups, and the stat of the VS Code history file that dates its entries. None is retried.
             const repositorySvg = repositoryIcon ? decodeURIComponent(repositoryIcon.icon.slice(4)) : "";
             const fileSvg = fileIcon ? decodeURIComponent(fileIcon.icon.slice(4)) : "";
-            if (!repositoryIcon || !repositoryIcon.icon.startsWith("svg:data:image/svg+xml,") || !repositorySvg.includes('fill="#2277bb"') || !repositorySvg.includes('fill="#1188dd"') || !repositorySvg.includes('rx="6"') || !repositorySvg.includes('d="M42 44v11') || repositorySvg.includes("<circle") || repositoryIcon.iconType !== "image" || !fileIcon || !fileIcon.icon.startsWith("svg:data:image/svg+xml,") || !fileSvg.includes('fill="#ddaa11"') || !fileSvg.includes('fill="#1188dd"') || !fileSvg.includes('rx="6"') || fileSvg.includes("<circle") || fileIcon.iconType !== "image" || !fileIcon.comment.startsWith(fileIcon.path + " · ") || !/(just now|\d+[mhdwoy] ago)$/.test(fileIcon.comment) || fileIcon.comment.includes("Modified") || fileIcon.comment.includes("Open with") || !providerIcon.startsWith("image:") || fileMetadata.requests !== 3 || root.liveRefreshNotifications < 1) {
+            if (!repositoryIcon || !repositoryIcon.icon.startsWith("svg:data:image/svg+xml,") || !repositorySvg.includes('fill="#2277bb"') || !repositorySvg.includes('fill="#1188dd"') || !repositorySvg.includes('rx="6"') || !repositorySvg.includes('d="M42 44v11') || repositorySvg.includes("<circle") || repositoryIcon.iconType !== "image" || !fileIcon || !fileIcon.icon.startsWith("svg:data:image/svg+xml,") || !fileSvg.includes('fill="#ddaa11"') || !fileSvg.includes('fill="#1188dd"') || !fileSvg.includes('rx="6"') || fileSvg.includes("<circle") || fileIcon.iconType !== "image" || !fileIcon.comment.endsWith(" · " + fileIcon.path) || !/^(just now|\d+[mhdwoy] ago) · /.test(fileIcon.comment) || fileIcon.comment.includes("Modified") || fileIcon.comment.includes("Open with") || !providerIcon.startsWith("image:") || fileMetadata.requests !== 4 || root.liveRefreshNotifications < 1) {
                 console.warn("T:FAIL themed file icon or executable badge: " + JSON.stringify({
                     "file": fileIcon ? [fileIcon.comment, fileIcon.iconType, fileIcon.icon.slice(0, 30)] : null,
                     "requests": fileMetadata.requests,
@@ -105,12 +106,15 @@ Item {
                 "providerName": "VS Code",
                 "recent": 0
             }]);
+            // The new file costs one request, and its icon is the same as the shared type's. Requests are counted per step, because the VS Code reader also stats on refresh.
+            const sameTypeBefore = fileMetadata.requests;
             const sameTypeIcon = root.launcher.getItems("second-example")[0];
-            if (!sameTypeIcon || sameTypeIcon.icon !== fileIcon.icon || fileMetadata.requests !== 4) {
+            if (!sameTypeIcon || sameTypeIcon.icon !== fileIcon.icon || fileMetadata.requests - sameTypeBefore !== 1) {
                 console.warn("T:FAIL file type icon cache");
                 Qt.quit();
                 return ;
             }
+            const sharedTypeBefore = fileMetadata.requests;
             checks.injectRecords([{
                 "path": checks.fixturePath + "/icon-fixture-one.yaml",
                 "kind": "file",
@@ -124,7 +128,8 @@ Item {
                 "providerName": "VS Code",
                 "recent": 0
             }]);
-            if (root.launcher.getItems("icon-fixture").length !== 2 || fileMetadata.requests !== 6) {
+            // Each new file path costs one Dux stat request, even when the files share one icon type.
+            if (root.launcher.getItems("icon-fixture").length !== 2 || fileMetadata.requests - sharedTypeBefore !== 2) {
                 console.warn("T:FAIL path checks for shared file type");
                 Qt.quit();
                 return ;
@@ -132,7 +137,7 @@ Item {
             root.launcher.getContextMenuActions(fileIcon).find(function(choice) {
                 return choice.text === "Details";
             }).action();
-            if (!root.launcher.detailsPanel.shouldBeVisible || !root.launcher.detailsPanel.allowStacking || !root.launcher.detailsPanel.useOverlayLayer || !root.launcher.detailsPanel.contentLoader.item || !root.launcher.detailsPanel.contentLoader.item.embedded || !root.launcher.detailsPanel.detailsText.includes("Source: VS Code") || !root.launcher.detailsPanel.detailsText.includes("Modified: " + new Date(fileMetadata.modifiedAt).toISOString())) {
+            if (!root.launcher.detailsPanel.shouldBeVisible || !root.launcher.detailsPanel.dialog.embedded || !root.launcher.detailsPanel.detailsText.includes("Source: VS Code") || !root.launcher.detailsPanel.detailsText.includes("Modified: " + new Date(fileMetadata.modifiedAt).toISOString())) {
                 console.warn("T:FAIL visible result details");
                 Qt.quit();
                 return ;
@@ -166,6 +171,7 @@ Item {
                 return ;
             }
             folderAction.action();
+            const missingBefore = fileMetadata.requests;
             checks.injectRecords([{
                 "path": "/tmp/missing-project.js",
                 "kind": "file",
@@ -173,7 +179,7 @@ Item {
                 "providerName": "VS Code",
                 "recent": 0
             }]);
-            if (root.launcher.getItems("missing-project").length !== 1 || fileMetadata.requests !== 7) {
+            if (root.launcher.getItems("missing-project").length !== 1 || fileMetadata.requests - missingBefore !== 1) {
                 console.warn("T:FAIL initial missing-path check");
                 Qt.quit();
                 return ;
@@ -196,7 +202,7 @@ Item {
                 "openedAt": Date.now() - 2 * 365 * 86400000
             }]);
             const historyCapped = root.launcher.getItems("history-capped")[0];
-            if (!historyCapped || !historyCapped.comment.endsWith("1w ago") || root.launcher.getItems("history-expired").length !== 0) {
+            if (!historyCapped || !historyCapped.comment.startsWith("1w ago · ") || root.launcher.getItems("history-expired").length !== 0) {
                 console.warn("T:FAIL provider history date cap");
                 Qt.quit();
                 return ;

@@ -15,6 +15,8 @@ Item {
     property int pathIndex: 0
     // The full path of the executable that the which command found.
     property string resolvedPath: ""
+    // True while the provider's metadata file is being read; a late answer after that is ignored.
+    property bool awaitingMetadata: false
 
     signal finished(bool accepted, string message, string field)
     signal resolvedExecutable(string path)
@@ -28,6 +30,7 @@ Item {
         paths = handler.validationPaths();
         pathIndex = 0;
         resolvedPath = "";
+        awaitingMetadata = false;
         running = true;
         executableProcess.outputText = "";
         executableProcess.hasExited = false;
@@ -37,18 +40,59 @@ Item {
         return true;
     }
 
-    // Start one accessibility check on a declared folder or file.
+    // Start the check on a declared folder or file: existence and type come from the Dux file service, and
+    // access rights are checked with test, which the file service does not report.
     function checkPath(flag) {
         const target = paths[pathIndex];
+        if (flag === "-e") {
+            FileMetadataService.statPath(target.path, function(result) {
+                root.pathStatAnswered(result);
+            });
+            return ;
+        }
         pathProcess.flag = flag;
         pathProcess.command = ["timeout", Config.providerValidationTimeout, "test", flag, target.path];
         pathProcess.running = true;
+    }
+
+    // The file service's answer for a declared path. A missing path is skipped when optional; a path of the wrong type fails.
+    function pathStatAnswered(result) {
+        if (!running)
+            return ;
+
+        const target = paths[pathIndex];
+        const entry = result && !result.error ? (result.entry || result) : null;
+        if (!entry) {
+            if (target.optional) {
+                pathIndex++;
+                nextPath();
+                return ;
+            }
+            complete(false, target.label + " is missing or cannot be read: " + target.path, target.field);
+            return ;
+        }
+        if (target.kind === "file" ? entry.isDir : !entry.isDir) {
+            complete(false, target.label + " is missing or cannot be read: " + target.path, target.field);
+            return ;
+        }
+        checkPath("-r");
     }
 
     // Move from checked paths to the provider-owned executable probe.
     function nextPath() {
         if (pathIndex < paths.length) {
             checkPath("-e");
+            return ;
+        }
+        // A provider's metadata file is read as text, so no process starts for an installation that can be checked that way.
+        const metadataPath = typeof handler.validationFile === "function" ? handler.validationFile(resolvedPath) : "";
+        if (metadataPath) {
+            awaitingMetadata = true;
+            // Setting a new path starts the load itself; reload is used only for the same path, as a reload after a path change drops the load.
+            if (metadataFile.path === metadataPath)
+                metadataFile.reload();
+            else
+                metadataFile.path = metadataPath;
             return ;
         }
         versionProcess.outputText = "";
@@ -63,6 +107,31 @@ Item {
 
         versionProcess.command = ["timeout", Config.providerValidationTimeout].concat(argumentsList);
         versionProcess.running = true;
+    }
+
+    // The metadata file's answer: a file that cannot be read fails the executable check, as a failed probe does.
+    function metadataAnswered(succeeded, text) {
+        if (!awaitingMetadata)
+            return ;
+
+        awaitingMetadata = false;
+        if (!succeeded) {
+            complete(false, "The selected IDE executable could not be started.", "executable");
+            return ;
+        }
+        acceptExecutableOutput(text, "");
+    }
+
+    // Let the provider judge the executable's answer, then check its recent history.
+    function acceptExecutableOutput(output, errorOutput) {
+        try {
+            root.handler.validateExecutable(output);
+            root.handler.validateArguments(output, errorOutput);
+            root.validateRecents();
+        } catch (caughtError) {
+            Logger.error("validation", String(caughtError));
+            root.complete(false, caughtError.userMessage || "This IDE executable is not supported.", caughtError.field || "executable");
+        }
     }
 
     // Finish a failed or successful validation without changing saved settings.
@@ -144,31 +213,33 @@ Item {
     Process {
         id: pathProcess
 
-        // The test flag, such as -e or -r, of the path check that is running.
+        // The test flag, -r or -x, of the access check that is running.
         property string flag: ""
 
-        // Required paths must exist and be readable; optional paths are checked when present.
+        // Required paths must be readable; folders must also be searchable. Existence and type were checked by the file service.
         onExited: function(exitCode) {
             const target = root.paths[root.pathIndex];
-            if (flag === "-e" && exitCode !== 0 && target.optional) {
-                root.pathIndex++;
-                root.nextPath();
-                return ;
-            }
             if (exitCode !== 0) {
                 root.complete(false, target.label + " is missing or cannot be read: " + target.path, target.field);
                 return ;
             }
-            if (flag === "-e") {
-                root.checkPath(target.kind === "file" ? "-f" : "-d");
-            } else if (flag === "-d" || flag === "-f") {
-                root.checkPath("-r");
-            } else if (flag === "-r" && target.kind === "directory") {
+            if (flag === "-r" && target.kind === "directory") {
                 root.checkPath("-x");
             } else {
                 root.pathIndex++;
                 root.nextPath();
             }
+        }
+    }
+
+    // The provider's metadata file, read as text when the provider names one for this installation.
+    FileView {
+        id: metadataFile
+
+        printErrors: false
+        onLoaded: root.metadataAnswered(true, text())
+        onLoadFailed: function(error) {
+            root.metadataAnswered(false, "");
         }
     }
 
@@ -192,14 +263,7 @@ Item {
                 root.complete(false, "The selected IDE executable could not be started.", "executable");
                 return ;
             }
-            try {
-                root.handler.validateExecutable(outputText);
-                root.handler.validateArguments(outputText, errorText);
-                root.validateRecents();
-            } catch (caughtError) {
-                Logger.error("validation", String(caughtError));
-                root.complete(false, caughtError.userMessage || "This IDE executable is not supported.", caughtError.field || "executable");
-            }
+            root.acceptExecutableOutput(outputText, errorText);
         }
 
         onExited: function(exitCode) {

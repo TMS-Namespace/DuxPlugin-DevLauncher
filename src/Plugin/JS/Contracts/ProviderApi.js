@@ -34,6 +34,10 @@ var ProviderApi = class ProviderApi {
     validationProbe(properties, executable) {
         return [];
     }
+    // An optional metadata file, read without starting a process, is checked by validateExecutable instead of a probe's output.
+    validationFile(properties, executable) {
+        return "";
+    }
     // Declare local folders and files that must be accessible before this provider is saved.
     validationPaths(properties, home, configHome) {
         return missing("validationPaths");

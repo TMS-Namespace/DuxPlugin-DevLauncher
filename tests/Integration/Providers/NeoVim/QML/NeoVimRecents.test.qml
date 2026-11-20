@@ -1,4 +1,4 @@
-// NeoVimRecents.test.qml - Read a generated ShaDa file through the NeoVim entry point, with real stat, base64, and find processes.
+// NeoVimRecents.test.qml - Read a generated ShaDa file through the NeoVim entry point, with a real file read and a real find process.
 import "../../../../../src/Plugin/QML/Services" as Services
 import "../../../../../src/Providers/NeoVim/JS/NeoVimApi.js" as Api
 import "../../../../../src/Providers/NeoVim/JS/NeoVimProperties.js" as Properties
@@ -17,15 +17,14 @@ QtObject {
 
     property var reader: null
 
-    // Build one NeoVim installation pointing at the given state folder, with the default terminal.
+    // Build one NeoVim installation pointing at the given state folder, launched through a terminal command.
     function propertiesFor(stateFolder) {
         return Properties.create({
             "installationType": "native",
             "id": "2ec31f6d-69ef-426e-b640-44cef0b5a640",
             "name": "NeoVim",
-            "executable": "/usr/bin/nvim",
+            "executable": "/usr/bin/gnome-terminal --",
             "config": stateFolder,
-            "terminal": "/usr/bin/gnome-terminal",
             "extraArguments": []
         });
     }
@@ -37,9 +36,8 @@ QtObject {
             "id": "2ec31f6d-69ef-426e-b640-44cef0b5a640",
             "type": "neovim",
             "name": "NeoVim",
-            "executable": "/usr/bin/nvim",
+            "executable": "/usr/bin/gnome-terminal --",
             "config": fixture.fixtureRoot + "/NeoVim/state",
-            "terminal": "/usr/bin/gnome-terminal",
             "extraArguments": []
         };
         const descriptor = Services.ProvidersManager.descriptorFor("neovim");
@@ -50,19 +48,18 @@ QtObject {
         });
         handler.properties.destroy();
         handler.destroy();
-        return fixture.expect(descriptor.fields.length === 3 && commandText === JSON.stringify(["/usr/bin/nvim", "--version"]) && pathLabels.indexOf("Terminal emulator") >= 0 && pathLabels.indexOf("NeoVim ShaDa history file") >= 0, "NeoVim is not registered with the declared command and paths: " + commandText + " " + JSON.stringify(pathLabels));
+        return fixture.expect(descriptor.fields.length === 2 && commandText === JSON.stringify(["/usr/bin/gnome-terminal"]) && pathLabels.indexOf("NeoVim state folder") >= 0 && pathLabels.indexOf("NeoVim ShaDa history file") >= 0, "NeoVim is not registered with the declared command and paths: " + commandText + " " + JSON.stringify(pathLabels));
     }
 
-    // Launch one marked file through the facade, so the real detached process receives NeoVim's terminal arguments.
+    // Launch one marked file through the facade, so the real detached process receives the terminal command's arguments.
     function launchThroughFacade() {
         const configuration = {
             "installationType": "native",
             "id": "2ec31f6d-69ef-426e-b640-44cef0b5a640",
             "type": "neovim",
             "name": "NeoVim",
-            "executable": fixture.fixtureRoot + "/bin/nvim",
+            "executable": fixture.fixtureRoot + "/bin/gnome-terminal --",
             "config": fixture.fixtureRoot + "/NeoVim/state",
-            "terminal": fixture.fixtureRoot + "/bin/gnome-terminal",
             "extraArguments": []
         };
         const handler = Services.ProvidersManager.candidate(configuration);

@@ -64,7 +64,7 @@ function check(root = path.resolve(__dirname, "../src")) {
             assert.ok(Object.hasOwn(Object.getPrototypeOf(instance), method));
             assert.equal(instance[method].length, arity);
         }
-        assert.equal(rules.assertDeclaration(declared, instance), true);
+        assert.equal(rules.assertDeclaration(declared, instance, entryPoint.descriptor()), true);
         assert.equal(rules.assertInstallation(declared, entryPoint.descriptor()), true);
         assert.throws(() => rules.assertDeclaration(Object.assign({}, declared, { unknownField: true }), instance));
     }

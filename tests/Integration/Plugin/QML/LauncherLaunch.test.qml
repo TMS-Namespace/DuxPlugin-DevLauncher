@@ -71,6 +71,8 @@ QtObject {
                 "path": "/tmp/alias-action",
                 "kind": "folder"
             };
+            // A saved provider list drops the launcher's cached search settings; the test changes the list directly, so it drops them the same way.
+            root.launcher.settingsSnapshot = null;
             const actions = root.launcher.getContextMenuActions(item);
             const office = actions.find(function(action) {
                 return action.text === "Open with Office IDE";

@@ -209,7 +209,6 @@ function runQml() {
             '#!/bin/sh\nprintf "%s\\n" "$@" > "$DEV_LAUNCHER_NEOVIM_LAUNCH_FILE"\n',
             { mode: 0o755 }
         );
-        fs.writeFileSync(path.join(bin, "nvim"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
         const environment = {
             ...process.env,
             DEV_LAUNCHER_NEOVIM_LAUNCH_FILE: neovimLaunchFile,
@@ -248,7 +247,7 @@ function runQml() {
         const neovimArguments = fs.existsSync(neovimLaunchFile)
             ? fs.readFileSync(neovimLaunchFile, "utf8").trimEnd().split("\n")
             : [];
-        const neovimExpected = ["--", path.join(bin, "nvim"), path.join(neovimProject, "main.lua")];
+        const neovimExpected = ["--", "nvim", path.join(neovimProject, "main.lua")];
         if (JSON.stringify(neovimArguments) !== JSON.stringify(neovimExpected))
             throw new Error("NeoVim launch arguments differ: " + JSON.stringify(neovimArguments));
         const snapLaunches = fs.readFileSync(snapLaunchFile, "utf8").trimEnd().split("\n");

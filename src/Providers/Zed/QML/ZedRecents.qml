@@ -1,11 +1,10 @@
 // ZedRecents.qml - Read Zed's workspace and file history through its own SQLite database.
-// Rules: The database file is checked before it is attached, so SQLite never creates an empty file, and only one read runs at a time.
+// Rules: The database file is checked with a Dux stat before it is attached, so SQLite never creates an empty file, and only one read runs at a time.
 import "../../../Plugin/JS/Helpers/PathRules.js" as PathRules
 import "../JS/ZedConstants.js" as Constants
 import QtQuick
 import QtQuick.LocalStorage
 import Quickshell
-import Quickshell.Io
 
 // The Zed history reader: it checks the database file exists, then reads its workspace and file rows in one query-only pass.
 QtObject {
@@ -18,11 +17,11 @@ QtObject {
     property var completed: null
     // The expanded path of the Zed database for the current read.
     property string databasePath: ""
-    // The one-shot check that the history database exists before the read starts.
-    property Process checker
+    // The plugin's file service stat, which checks the database is a file before the read starts.
+    property var statPath: null
 
     // Check the database exists before attaching it, because SQLite otherwise creates a missing file.
-    function read(api, properties, callback) {
+    function read(api, properties, callback, statFunction) {
         if (running)
             return false;
 
@@ -30,15 +29,23 @@ QtObject {
         currentApi = api;
         currentProperties = properties;
         completed = callback;
+        statPath = statFunction;
         databasePath = PathRules.expand(api.sources(properties)[0].path, Quickshell.env("HOME"), Quickshell.env("XDG_CONFIG_HOME"));
-        checker.command = ["timeout", Constants.CHECK_TIMEOUT, "test", "-f", databasePath];
-        checker.running = true;
+        if (!statPath) {
+            finish(null);
+            return true;
+        }
+        statPath(databasePath, function(result) {
+            root.finish(result);
+        });
         return true;
     }
 
-    // A missing or unreadable database is a failed source, so the previous cache remains intact.
-    function finish(exitCode) {
-        if (exitCode !== 0) {
+    // A file answer is the only one that opens the database; a missing, unreadable, or directory path is a failed source,
+    // so the previous cache remains intact.
+    function finish(result) {
+        const entry = result && !result.error ? (result.entry || result) : null;
+        if (!entry || entry.isDir) {
             running = false;
             completed([], "Could not read Zed history. Check its data folder.", "Zed history database is unavailable", false);
             return ;
@@ -123,12 +130,6 @@ QtObject {
             });
         }
         return records;
-    }
-
-    checker: Process {
-        onExited: function(exitCode) {
-            root.finish(exitCode);
-        }
     }
 
 }

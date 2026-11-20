@@ -14,9 +14,7 @@ assert.deepEqual(Array.from(batches.batches([], 2)), []);
 const command = batches.command(["/tmp/x", "-rf"]);
 assert.equal(command[0], "timeout");
 assert.equal(command[1], config.statBatchTimeout);
-assert.equal(command[2], "env");
-assert.equal(command[3], "LC_ALL=C");
-assert.equal(command[4], "stat");
+assert.equal(command[2], "stat");
 assert.equal(command[command.indexOf("--") + 1], "/tmp/x");
 assert.equal(command[command.length - 1], "-rf");
 
@@ -80,7 +78,8 @@ try {
     const existing = names.map((name) => path.join(tree, name));
     for (const filename of existing) fs.writeFileSync(filename, "fixture");
     const absent = existing.map((filename) => filename + "-absent");
-    for (const locale of ["C", "sv_SE.UTF-8", "ar_EG.UTF-8"]) {
+    // DateRefresher.qml runs this command with LC_ALL=C, so its diagnostics are English and can be matched.
+    for (const locale of ["C"]) {
         const command = batches.command(existing.concat(absent));
         const result = spawnSync(command[0], Array.from(command.slice(1)), {
             encoding: "utf8",

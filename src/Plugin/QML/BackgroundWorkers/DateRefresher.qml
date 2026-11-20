@@ -110,6 +110,8 @@ QtObject {
             // The refresher that created this batch; it receives the answer, and ignores it when the batch is no longer current.
             property var owner: null
 
+            // Diagnostics must stay in English so missing paths can be recognised.
+            environment: Config.commandEnvironment
             onExited: function(exitCode) {
                 exitStatus = exitCode;
                 exited = true;

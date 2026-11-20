@@ -6,13 +6,13 @@
 .import "VSCodeCommands.js" as VSCodeCommands
 .import "VSCodeValidation.js" as VSCodeValidation
 // Rules: Pure history parsing and command building: throws PluginError for bad input and never runs a process; no QML types or logging.
-// Order one history entry by its position, using the file time when the IDE's file time is known.
-
-// Order one history entry by its position, using the file time when the IDE's file time is known.
-// Without a file time the position alone ranks entries, so they stay below any dated entries.
-function recentRank(modifiedAt, position) {
-    if (Number(modifiedAt) > 0) return Math.max(0, modifiedAt - position);
-    return Constants.MAX_PER_LIST - position;
+// The deduction of one step: (LAUNCH_DECAY_BASE ^ order_index) hours, capped at ten days, in milliseconds.
+// Each entry's estimated date is the previous entry's date less its own step's deduction, starting from the history file's time.
+function stepDeduction(orderIndex) {
+    return (
+        Math.min(Math.pow(Constants.LAUNCH_DECAY_BASE, orderIndex), Constants.LAUNCH_MAX_DEDUCTION_HOURS) *
+        Constants.HOUR_MILLISECONDS
+    );
 }
 
 // The VS Code history reader and command builder for native, Flatpak and Snap installations.
@@ -41,6 +41,10 @@ var VSCodeApi = class VSCodeApi extends Base.ProviderApi {
             ["files2", "file"]
         ];
         const records = [];
+        // The position counts entries across all three lists, so the estimate follows the order VS Code stores them in.
+        let position = 0;
+        // The running estimate starts at the history file's time; without that time there is no date to estimate from.
+        let estimate = Number(snapshot.modifiedAt) > 0 ? Number(snapshot.modifiedAt) : 0;
         for (const field of fields) {
             const entries = Array.isArray(history[field[0]]) ? history[field[0]] : [];
             for (let i = 0; i < entries.length && i < Constants.MAX_PER_LIST; i++) {
@@ -57,14 +61,17 @@ var VSCodeApi = class VSCodeApi extends Base.ProviderApi {
                     : entry && entry.fileUri
                       ? "file"
                       : field[1];
+                estimate = Math.max(0, estimate - stepDeduction(position));
+                const openedAt = estimate > 0 ? Math.round(estimate) : 0;
                 records.push({
                     path: path,
                     kind: kind,
                     provider: properties.providerId,
                     providerName: properties.name,
-                    recent: recentRank(snapshot.modifiedAt, i),
-                    openedAt: snapshot.modifiedAt
+                    recent: openedAt > 0 ? openedAt : Constants.MAX_PER_LIST - position,
+                    openedAt: openedAt
                 });
+                position++;
             }
         }
         return records;

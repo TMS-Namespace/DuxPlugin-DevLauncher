@@ -51,6 +51,14 @@ refused(
     })
 );
 refused(Object.assign({}, vsCode, { installations: [{ type: "native", executable: "" }] }));
+// An empty executable is accepted only when the installation declares that the user supplies it.
+assert.equal(
+    descriptors.validate(
+        Object.assign({}, vsCode, { installations: [{ type: "native", executable: "", userExecutable: true }] })
+    ).installations[0].userExecutable,
+    true
+);
+refused(Object.assign({}, vsCode, { installations: [{ type: "native", executable: "", userExecutable: "yes" }] }));
 
 // Provider-specific package choices can omit Flatpak, as a Native/Snap-only provider would.
 const nativeAndSnap = Object.assign({}, vsCode, {

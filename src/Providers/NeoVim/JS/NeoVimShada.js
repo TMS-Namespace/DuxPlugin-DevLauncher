@@ -1,38 +1,13 @@
-// NeoVimShada.js - Decode NeoVim's ShaDa history: base64 text becomes items, and file-mark items become local paths.
+// NeoVimShada.js - Decode NeoVim's ShaDa history: its bytes become items, and file-mark items become local paths.
 .pragma library
 .import "../../../Plugin/JS/Contracts/PluginError.js" as PluginError
 .import "NeoVimConstants.js" as Constants
 .import "NeoVimMsgpack.js" as MessagePack
 // Rules: Pure parsing: throws PluginError for damaged or oversized input and never runs a process; no QML types or logging.
 
-var BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
 // Stop with one parse error for damaged history, so the previous cache is kept.
 function damaged(detail) {
     throw new PluginError.PluginError(PluginError.Code.PARSE, "The NeoVim history file is damaged.", detail);
-}
-
-// Decode standard base64 text, as written by base64 -w0, into a plain array of byte values.
-function decodeBase64(text) {
-    const encoded = String(text || "");
-    // The text must have whole groups of four characters, padding only at the end, and no more than the byte limit.
-    if (
-        encoded.length > Math.ceil(Constants.MAX_SHADA_BYTES / 3) * 4 ||
-        encoded.length % 4 !== 0 ||
-        !/^[A-Za-z0-9+\/]*={0,2}$/.test(encoded)
-    )
-        damaged("Invalid or oversized base64 text");
-    const bytes = [];
-    for (let index = 0; index < encoded.length; index += 4) {
-        const first = BASE64_ALPHABET.indexOf(encoded[index]);
-        const second = BASE64_ALPHABET.indexOf(encoded[index + 1]);
-        const third = encoded[index + 2] === "=" ? 0 : BASE64_ALPHABET.indexOf(encoded[index + 2]);
-        const fourth = encoded[index + 3] === "=" ? 0 : BASE64_ALPHABET.indexOf(encoded[index + 3]);
-        bytes.push((first << 2) | (second >> 4));
-        if (encoded[index + 2] !== "=") bytes.push(((second & 15) << 4) | (third >> 2));
-        if (encoded[index + 3] !== "=") bytes.push(((third & 3) << 6) | fourth);
-    }
-    return bytes;
 }
 
 // A ShaDa item count, timestamp, or length is a non-negative whole number.
@@ -62,7 +37,9 @@ function fileMarkTimes(bytes) {
 
 // Return the newest local absolute paths marked in ShaDa, with their timestamps in seconds, up to the list limit.
 // Remote and virtual buffers such as scp:// or term:// are not local paths, so they are left out.
+// The bytes are a plain array of byte values; a larger file is refused before it is parsed.
 function records(bytes) {
+    if (!bytes || bytes.length > Constants.MAX_SHADA_BYTES) damaged("ShaDa file is missing or oversized");
     const latest = fileMarkTimes(bytes);
     return Object.keys(latest)
         .filter(function (path) {

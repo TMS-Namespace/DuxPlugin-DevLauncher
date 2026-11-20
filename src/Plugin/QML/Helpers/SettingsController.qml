@@ -569,12 +569,14 @@ Item {
         onFinished: function(accepted, message, field) {
             root.acceptValidation(accepted, message, field);
         }
-        // Stores the resolved executable path in the draft and checks it for duplicates again.
+        // Stores the resolved executable path of a bare program name in the draft and checks it for duplicates again.
         onResolvedExecutable: function(path) {
             if (root.activeValidationRevision !== root.validationRevision || !root.candidateHandler)
                 return ;
 
-            if (root.draft.executable !== path)
+            // Only a bare program name is replaced by its resolved path; a command typed with arguments, such as "ghostty -e", is kept as entered.
+            const typed = String(root.draft.executable || "");
+            if (root.draft.executable !== path && !/\s/.test(typed))
                 root.draft = Object.assign({
             }, root.draft, {
                 "executable": path

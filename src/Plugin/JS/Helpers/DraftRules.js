@@ -74,7 +74,9 @@ function switchInstallation(draft, installations, selected) {
         return installation.type === selected;
     });
     if (!choice || draft.installationType === selected) return draft;
-    const next = Object.assign({}, draft, { installationType: selected, executable: choice.executable });
+    // An installation whose executable the user supplies keeps the executable already in the draft.
+    const executable = choice.userExecutable === true ? draft.executable : choice.executable;
+    const next = Object.assign({}, draft, { installationType: selected, executable: executable });
     if (choice.config !== undefined) next.config = choice.config;
     if (choice.shared !== undefined) next.shared = choice.shared;
     return next;

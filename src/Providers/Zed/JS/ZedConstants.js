@@ -9,7 +9,6 @@ var DEFAULT_DATA_DIRECTORY = "~/.var/app/dev.zed.Zed/data/zed";
 var FLATPAK_ID = "dev.zed.Zed";
 var HISTORY_PATH = "/db/0-stable/db.sqlite";
 var MAX_HISTORY_ROWS = 500;
-var CHECK_TIMEOUT = "4s";
 var NATIVE_EXECUTABLE = "zed";
 var NATIVE_DATA_DIRECTORY = "~/.local/share/zed";
 var SNAP_NAME = "zed";

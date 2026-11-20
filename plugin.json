@@ -1,7 +1,7 @@
 {
     "id": "devLauncher",
     "name": "Dev Launcher",
-    "description": "Swiftly find local Git repositories and recently opened projects and files in IDEs in the Dux launcher.",
+    "description": "Swiftly find local Git repositories and recently opened projects and files in IDEs in the Dux launcher (currently supports VS Code, NeoVim, Zed, Rider).",
     "version": "1.0.0",
     "author": "TMS-Namespace",
     "type": "composite",
@@ -12,12 +12,13 @@
     },
     "settings": "./src/Plugin/QML/Settings.qml",
     "trigger": "`",
-    "icon": "account_tree",
+    "icon": "material:account_tree",
     "category": "productivity",
-    "repo": "https://github.com/TMS-Namespace/Dux-VS-Code-Recents-Plugin",
+    "repo": "https://github.com/TMS-Namespace/DuxPlugin-DevLauncher",
     "permissions": ["settings_read", "settings_write", "process"],
     "requires_dms": ">=2.0.0",
     "distro": ["any"],
     "compositors": ["any"],
-    "dependencies": ["find", "timeout", "stat", "cat", "head", "which", "test", "xdg-open"]
+    "dependencies": ["find", "timeout", "stat", "which", "test", "xdg-open"],
+    "screenshot": "https://github.com/TMS-Namespace/DuxPlugin-DevLauncher/raw/main/images/Launcher.png"
 }

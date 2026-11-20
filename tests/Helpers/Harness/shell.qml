@@ -156,6 +156,8 @@ ShellRoot {
 
         signal pluginDataChanged(string pluginId)
         signal globalVarChanged(string pluginId, string name)
+        // Dux listens for this signal to search the launcher again.
+        signal requestLauncherUpdate(string pluginId)
 
         function loadPluginData(pluginId, name, defaultValue) {
             return root.settings[name] !== undefined ? root.settings[name] : defaultValue;

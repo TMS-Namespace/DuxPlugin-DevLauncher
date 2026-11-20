@@ -110,6 +110,7 @@ QtObject {
                 "fourth": provider("zed", "/usr/bin/flatpak"),
                 "fifth": provider("zed", "/usr/bin/flatpak")
             };
+            service.refreshBadges();
             const result = service.iconFor({
                 "path": "/tmp/shared.js",
                 "kind": "file",
@@ -120,6 +121,7 @@ QtObject {
                 return false;
 
             Services.ProvidersManager.handlers.first.iconPath = custom;
+            service.refreshBadges();
             const overridden = decodeURIComponent(service.iconFor({
                 "path": "/tmp/shared.js",
                 "kind": "file",

@@ -31,7 +31,11 @@ function validate(descriptor) {
     for (const installation of descriptor.installations) {
         if (!installation || !InstallationType.isValid(installation.type) || types.includes(installation.type))
             invalid("installation type");
-        if (typeof installation.executable !== "string" || !installation.executable) invalid("installation executable");
+        if (typeof installation.executable !== "string") invalid("installation executable");
+        // An empty executable is allowed only when the user supplies it, so an accidental empty value is still refused.
+        if (!installation.executable && installation.userExecutable !== true) invalid("installation executable");
+        if (installation.userExecutable !== undefined && typeof installation.userExecutable !== "boolean")
+            invalid("installation user executable");
         if (installation.desktopId !== undefined && typeof installation.desktopId !== "string")
             invalid("installation desktop ID");
         if (installation.iconName !== undefined && typeof installation.iconName !== "string")

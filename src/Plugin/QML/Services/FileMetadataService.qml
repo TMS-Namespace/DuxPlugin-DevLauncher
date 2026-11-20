@@ -156,6 +156,27 @@ QtObject {
         return cached && cached.expiresAt > Date.now() ? cached.iconName : "";
     }
 
+    // Stat one path through the Dux file service for a provider's reader. The answer is the Dux stat result, or an error when the
+    // service is not connected or cannot answer; a missing path reports ENOENT.
+    function statPath(path, callback) {
+        if (!Host.files || !Host.files.connected || typeof Host.files.stat !== "function") {
+            callback({
+                "error": "The Dux file service is not connected.",
+                "code": "EUNAVAILABLE"
+            });
+            return ;
+        }
+        try {
+            Host.files.stat(path, callback);
+        } catch (caughtError) {
+            Logger.error("metadata", "Could not stat a history file: " + String(caughtError));
+            callback({
+                "error": String(caughtError),
+                "code": "EUNAVAILABLE"
+            });
+        }
+    }
+
     // Read one path's actual modification time for the result details action.
     function modifiedAt(path, callback) {
         if (PathRules.resourceType(path) === "remote") {

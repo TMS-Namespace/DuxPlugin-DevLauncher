@@ -23,28 +23,20 @@ function assertParseError(action, label) {
     );
 }
 
-// Encode bytes as base64 text, the same form the reader receives from base64 -w0.
-function base64Of(buffer) {
-    return Buffer.from(buffer).toString("base64");
+// The reader hands ShaDa bytes over as a plain array of byte values, which is what FileView.data() gives after Array.from.
+function bytesOf(buffer) {
+    return Array.from(buffer);
 }
 
 // A real ShaDa file written by NeoVim 0.12.6: it marks three local paths, one of them a folder.
 const realBytes = fs.readFileSync(path.join(__dirname, "..", "fixtures", "nvim-real.shada"));
-const realRecords = Shada.records(Shada.decodeBase64(base64Of(realBytes)));
+const realRecords = Shada.records(bytesOf(realBytes));
 assert.deepEqual(plain(realRecords.map((record) => record.path).sort()), [
     "/srv/dl-fixture/project",
     "/srv/dl-fixture/project/main.lua",
     "/srv/dl-fixture/project/notes.md"
 ]);
 assert.ok(realRecords.every((record) => Number.isInteger(record.timestamp) && record.timestamp > 1700000000));
-
-// Base64 decoding matches Node's own decoder for every padding length.
-for (const sample of ["", "f", "fo", "foo", "foob", "fooba", "foobar"]) {
-    assert.deepEqual(
-        Buffer.from(plain(Shada.decodeBase64(Buffer.from(sample).toString("base64")))),
-        Buffer.from(sample)
-    );
-}
 
 // Item types other than file marks are skipped by their length, so their body is never decoded.
 const mixed = encodeShada([
@@ -63,7 +55,7 @@ const stream = Buffer.concat([
     Buffer.from(encodeValue(unknownBody.length)),
     unknownBody
 ]);
-const mixedRecords = Shada.records(Shada.decodeBase64(base64Of(stream)));
+const mixedRecords = Shada.records(bytesOf(stream));
 assert.deepEqual(plain(mixedRecords.map((record) => [record.path, record.timestamp])), [
     ["/srv/global.lua", 400],
     ["/srv/marked.md", 300]
@@ -77,33 +69,26 @@ const virtual = encodeShada([
     { type: 10, timestamp: 13, data: { n: 46 } },
     { type: 10, timestamp: 14, data: { f: "/srv/local.md" } }
 ]);
-assert.deepEqual(plain(Shada.records(Shada.decodeBase64(base64Of(virtual))).map((record) => record.path)), [
-    "/srv/local.md"
-]);
+assert.deepEqual(plain(Shada.records(bytesOf(virtual)).map((record) => record.path)), ["/srv/local.md"]);
 
 // The list keeps only the newest entries within the declared limit.
 const many = [];
 for (let index = 0; index < Constants.MAX_PER_LIST + 5; index++)
     many.push({ type: 10, timestamp: 1000 + index, data: { f: "/srv/item-" + index } });
-const limited = Shada.records(Shada.decodeBase64(base64Of(encodeShada(many))));
+const limited = Shada.records(bytesOf(encodeShada(many)));
 assert.equal(limited.length, Constants.MAX_PER_LIST);
 assert.equal(limited[0].path, "/srv/item-" + (Constants.MAX_PER_LIST + 4));
 
 // Damaged input throws a parse error instead of returning partial history.
-assertParseError(() => Shada.decodeBase64("abc"), "base64 length must be a multiple of four");
-assertParseError(() => Shada.decodeBase64("ab!d"), "base64 characters must be in the alphabet");
 const truncated = encodeItem(10, 1, { f: "/srv/x" }).subarray(0, 6);
-assertParseError(() => Shada.records(Shada.decodeBase64(base64Of(truncated))), "truncated item");
+assertParseError(() => Shada.records(bytesOf(truncated)), "truncated item");
 const badLength = Buffer.from(encodeValue(10).concat(encodeValue(1), encodeValue(200), encodeValue({ f: "/x" })));
-assertParseError(() => Shada.records(Shada.decodeBase64(base64Of(badLength))), "item length beyond the data");
+assertParseError(() => Shada.records(bytesOf(badLength)), "item length beyond the data");
 const badUtf8 = Buffer.from(encodeValue(10).concat(encodeValue(1), encodeValue(4), [0xa2, 0xc3, 0x28]));
-assertParseError(() => Shada.records(Shada.decodeBase64(base64Of(badUtf8))), "invalid UTF-8 in a path");
+assertParseError(() => Shada.records(bytesOf(badUtf8)), "invalid UTF-8 in a path");
 
-// Text over the size limit is refused before it is decoded.
-assertParseError(
-    () => Shada.decodeBase64("A".repeat(Math.ceil(Constants.MAX_SHADA_BYTES / 3) * 4 + 4)),
-    "oversized base64"
-);
+// Bytes over the size limit are refused before they are parsed.
+assertParseError(() => Shada.records(new Array(Constants.MAX_SHADA_BYTES + 1).fill(0)), "oversized ShaDa file");
 
 // The decoder reads all MessagePack forms that ShaDa items use, and refuses nesting beyond the depth limit.
 assert.deepEqual(MessagePack.decodeValue([0xc3]), true);

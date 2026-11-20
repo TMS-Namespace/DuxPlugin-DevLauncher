@@ -12,6 +12,12 @@
 function fail(message, details, field) {
     throw new PluginError.PluginError(PluginError.Code.PROVIDER_CONFIG, message, details, field);
 }
+
+// The folder above a path, computed as text so no shell or filesystem lookup is needed; the root stays the root.
+function parentOf(path) {
+    const index = String(path).lastIndexOf("/");
+    return index > 0 ? path.slice(0, index) : "/";
+}
 // The Rider history reader and command builder for native and Snap installations.
 var RiderApi = class RiderApi extends Base.ProviderApi {
     // Describe the configuration root; the reader discovers its versioned history files.
@@ -38,18 +44,12 @@ var RiderApi = class RiderApi extends Base.ProviderApi {
             ? [executable, "list", Constants.SNAP_NAME]
             : [executable];
     }
-    // Read Rider metadata without launching the graphical IDE. The shell resolves symlinks first, so a launcher reached
-    // through a link (such as a Toolbox launcher in a user's bin folder) still finds its own installation's metadata.
-    validationProbe(properties, executable) {
-        if (properties.installationType === InstallationType.Snap) return [];
-        return [
-            "sh",
-            "-c",
-            'head -c "$2" -- "$(dirname -- "$(dirname -- "$(readlink -f -- "$1")")")/product-info.json"',
-            "sh",
-            executable,
-            String(Constants.MAX_HISTORY_BYTES + 1)
-        ];
+    // Read Rider's product metadata from the installation root, two folders above the launcher (bin/rider.sh).
+    // The path is computed without resolving symlinks, so a launcher reached through a link must be picked by its real path.
+    validationFile(properties, executable) {
+        if (properties.installationType === InstallationType.Snap) return "";
+        const installation = parentOf(parentOf(executable));
+        return (installation === "/" ? "" : installation) + "/product-info.json";
     }
     // Require the configured Rider history root to exist and be readable.
     validationPaths(properties, home, configHome) {
@@ -80,6 +80,13 @@ var RiderApi = class RiderApi extends Base.ProviderApi {
         const name = String(properties.executable).split("/").pop();
         if (name !== "rider" && name !== "rider.sh")
             fail("Choose Rider's launcher in its installation bin folder.", name, "executable");
+        // The metadata file is read whole, so an oversized one is refused before it is parsed.
+        if (String(output).length > Constants.MAX_HISTORY_BYTES)
+            fail(
+                "Choose Rider's launcher in its installation bin folder.",
+                "Product metadata is too large",
+                "executable"
+            );
         let metadata;
         try {
             metadata = JSON.parse(output);

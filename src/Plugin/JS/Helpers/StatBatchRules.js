@@ -10,9 +10,9 @@ function batches(paths, size) {
 }
 
 // NUL separates timestamp/path fields, so tabs and newlines in names remain intact.
-// Arguments follow -- and diagnostics use a fixed language, independent of desktop locale.
+// Arguments follow --. The caller runs the process with LC_ALL=C, so diagnostics use a fixed language.
 function command(paths) {
-    return ["timeout", Config.statBatchTimeout, "env", "LC_ALL=C", "stat", "--printf=%Y\\0%n\\0", "--"].concat(paths);
+    return ["timeout", Config.statBatchTimeout, "stat", "--printf=%Y\\0%n\\0", "--"].concat(paths);
 }
 
 // Read complete NUL-delimited timestamp/path pairs; a partial final record is ignored.

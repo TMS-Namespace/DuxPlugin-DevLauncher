@@ -7,7 +7,7 @@ const defaults = source("Helpers/Config.js");
 assert.equal(defaults.trigger, "`");
 const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../../../../plugin.json"), "utf8"));
 assert.equal(manifest.trigger, defaults.trigger);
-assert.equal(manifest.icon, "account_tree");
+assert.equal(manifest.icon, "material:account_tree");
 assert.equal(defaults.searchPaths, false);
 assert.deepEqual({ ...defaults.defaultAgeFilter }, { value: 3, unit: "months" });
 assert.equal(defaults.refreshMilliseconds, 10000);

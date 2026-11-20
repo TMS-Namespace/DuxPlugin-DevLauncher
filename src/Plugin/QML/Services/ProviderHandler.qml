@@ -32,7 +32,8 @@ QtObject {
     // Return normalized recents; callers never see provider source paths or payloads.
     function recents(callback) {
         const activeReader = createReader();
-        return activeReader && activeReader.read(api, properties, callback);
+        // The file service is passed in, so a reader can stat a history file without importing the plugin's services.
+        return activeReader && activeReader.read(api, properties, callback, FileMetadataService.statPath);
     }
 
     // Let the provider build all switches and arguments before executing them.
@@ -51,6 +52,11 @@ QtObject {
     // Use a provider's safe metadata probe when supplied; otherwise keep the usual version command.
     function validationProbe(executable) {
         return api.validationProbe(properties, executable);
+    }
+
+    // The metadata file to read instead of running the executable, or an empty string when the provider has none.
+    function validationFile(executable) {
+        return api.validationFile(properties, executable);
     }
 
     // Declared folders and files this installation must be able to read, with the provider's own limits applied.

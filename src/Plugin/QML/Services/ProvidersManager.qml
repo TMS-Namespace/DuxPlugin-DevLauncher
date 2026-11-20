@@ -138,8 +138,12 @@ QtObject {
 
         const declared = source.provider.createProperties(configuration);
         const api = source.provider.createApi();
-        ProviderRules.assertDeclaration(declared, api);
+        ProviderRules.assertDeclaration(declared, api, source.descriptor);
         ProviderRules.assertInstallation(declared, source.descriptor);
+        // A launchable IDE cannot be saved without its executable, so the editor shows the refusal at once.
+        if (source.launchable && !declared.executable)
+            throw new PluginError.PluginError(PluginError.Code.PROVIDER_CONFIG, "Choose a valid IDE executable.", declared.providerId, "executable");
+
         return {
             "source": source,
             "declared": declared,

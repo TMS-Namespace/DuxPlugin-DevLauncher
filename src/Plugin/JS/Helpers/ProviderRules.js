@@ -44,7 +44,14 @@ function assertInstallation(declared, descriptor) {
 }
 
 // Refuse unknown fields, invalid settings, and inherited abstract methods.
-function assertDeclaration(declared, api) {
+// The descriptor, when given, says which installation types let the user supply the executable; without it an empty executable is refused.
+function userSuppliesExecutable(declared, descriptor) {
+    return (descriptor && descriptor.installations ? descriptor.installations : []).some(function (entry) {
+        return entry.type === declared.installationType && entry.userExecutable === true;
+    });
+}
+
+function assertDeclaration(declared, api, descriptor) {
     for (const key of Object.keys(declared)) {
         if (PropertyNames.indexOf(key) < 0)
             throw new PluginError.PluginError(
@@ -79,7 +86,13 @@ function assertDeclaration(declared, api) {
             declared.providerId,
             "name"
         );
-    if (typeof declared.executable !== "string" || !/^[A-Za-z0-9_.\/~+][A-Za-z0-9_.\/~+ -]*$/.test(declared.executable))
+    // An empty executable is accepted only for an installation the descriptor marks as user-supplied; the validator then refuses it before saving.
+    const emptyAllowed = userSuppliesExecutable(declared, descriptor);
+    if (
+        typeof declared.executable !== "string" ||
+        (!declared.executable && !emptyAllowed) ||
+        (declared.executable && !/^[A-Za-z0-9_.\/~+][A-Za-z0-9_.\/~+ -]*$/.test(declared.executable))
+    )
         throw new PluginError.PluginError(
             PluginError.Code.PROVIDER_CONFIG,
             "Choose a valid IDE executable.",

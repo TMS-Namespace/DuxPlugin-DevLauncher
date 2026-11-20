@@ -101,6 +101,7 @@ QtObject {
             // The reader that created this process; it receives the answer.
             property var owner: null
 
+            environment: Config.commandEnvironment
             onExited: function(exitCode) {
                 exitStatus = exitCode;
                 hasExited = true;

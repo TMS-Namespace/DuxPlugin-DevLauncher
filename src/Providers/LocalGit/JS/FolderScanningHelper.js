@@ -15,8 +15,6 @@ function findCommand(folder, depth) {
     const command = [
         "timeout",
         Config.repositoryScanTimeout,
-        "env",
-        "LC_ALL=C",
         "find",
         folder,
         "-maxdepth",

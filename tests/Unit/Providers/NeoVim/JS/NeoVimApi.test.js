@@ -1,5 +1,5 @@
-// NeoVimApi.test.js - Check history normalization, terminal launch arguments, and validation for NeoVim.
-// Rules: Runs in plain node; launch arguments must put the terminal's own switches before NeoVim, and every path stays one argument.
+// NeoVimApi.test.js - Check history normalization, terminal-command launches, and the terminal and NeoVim checks.
+// Rules: Runs in plain node; the terminal command is split into words, every path stays one argument, and the program runs after the terminal.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -7,17 +7,19 @@ const source = require("../../../../Helpers/LoadSource.cjs");
 const { encodeShada } = require("../../../../Helpers/ShadaFixture.cjs");
 const api = source("Providers/NeoVim/JS/NeoVimApi.js").create();
 const propertiesModule = source("Providers/NeoVim/JS/NeoVimProperties.js");
-const properties = propertiesModule.create(propertiesModule.defaultConfiguration());
+const properties = propertiesModule.create(
+    Object.assign(propertiesModule.defaultConfiguration(), { executable: "ghostty -e" })
+);
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
-// Encode a ShaDa file in memory and return it as base64, the text the reader receives.
-function shadaText(items) {
-    return encodeShada(items).toString("base64");
+// Encode a ShaDa file in memory and return its bytes as a plain array, the form the reader passes on.
+function shadaBytes(items) {
+    return Array.from(encodeShada(items));
 }
 
 // The real NeoVim fixture yields its marked paths, with the folder kind taken from the folder list.
-const realText = fs.readFileSync(path.join(__dirname, "..", "fixtures", "nvim-real.shada")).toString("base64");
-const records = plain(api.parseHistory({ text: realText, directories: ["/srv/dl-fixture/project"] }, properties));
+const realBytes = Array.from(fs.readFileSync(path.join(__dirname, "..", "fixtures", "nvim-real.shada")));
+const records = plain(api.parseHistory({ bytes: realBytes, directories: ["/srv/dl-fixture/project"] }, properties));
 assert.equal(records.length, 3);
 assert.deepEqual(records.map((record) => [record.path, record.kind]).sort(), [
     ["/srv/dl-fixture/project", "folder"],
@@ -37,7 +39,7 @@ assert.ok(
 // Timestamps come from ShaDa in seconds and are reported in milliseconds, like the other providers.
 const timed = plain(
     api.parseHistory(
-        { text: shadaText([{ type: 10, timestamp: 1700000000, data: { f: "/srv/a.md" } }]), directories: [] },
+        { bytes: shadaBytes([{ type: 10, timestamp: 1700000000, data: { f: "/srv/a.md" } }]), directories: [] },
         properties
     )
 );
@@ -48,7 +50,7 @@ assert.equal(timed[0].kind, "file");
 assert.deepEqual(
     plain(
         api.markedPaths({
-            text: shadaText([
+            bytes: shadaBytes([
                 { type: 10, timestamp: 5, data: { f: "/srv/old" } },
                 { type: 10, timestamp: 9, data: { f: "/srv/new" } }
             ])
@@ -57,48 +59,93 @@ assert.deepEqual(
     ["/srv/new", "/srv/old"]
 );
 
-// Launch arguments: the terminal's switches come before NeoVim, and the extra arguments and path stay separate.
-properties.settings.terminal = "/usr/bin/gnome-terminal";
-properties.executable = "/usr/bin/nvim";
-properties.extraArguments = ["--clean"];
-assert.deepEqual(plain(api.launchArgs("/srv/dl-fixture/project/main.lua", properties, "/home/test")), [
-    "/usr/bin/gnome-terminal",
-    "--",
-    "/usr/bin/nvim",
+// Native launch: the terminal command's words come first, then nvim, the extra arguments, and the path, each as its own argument.
+const withArguments = Object.assign({}, properties, { extraArguments: ["--clean"] });
+assert.deepEqual(plain(api.launchArgs("/srv/x", withArguments, "/home/test")), [
+    "ghostty",
+    "-e",
+    "nvim",
     "--clean",
-    "/srv/dl-fixture/project/main.lua"
-]);
-properties.settings.terminal = "/opt/bin/kitty";
-properties.extraArguments = [];
-assert.deepEqual(plain(api.launchArgs("/srv/a folder/file.md", properties, "/home/test")), [
-    "/opt/bin/kitty",
-    "/usr/bin/nvim",
-    "/srv/a folder/file.md"
-]);
-properties.settings.terminal = "/usr/bin/wezterm";
-assert.deepEqual(plain(api.launchArgs("/srv/x", properties, "/home/test")), [
-    "/usr/bin/wezterm",
-    "start",
-    "--",
-    "/usr/bin/nvim",
     "/srv/x"
 ]);
-properties.settings.terminal = "/usr/bin/unknown-terminal";
-assert.throws(
-    () => api.launchArgs("/srv/x", properties, "/home/test"),
-    (error) => error.field === "terminal"
-);
-properties.settings.terminal = "/usr/bin/gnome-terminal";
+// A path with spaces stays one argument, and a terminal written with a home folder is expanded.
+const homeTerminal = Object.assign({}, properties, { executable: "~/bin/term --title x -e" });
+assert.deepEqual(plain(api.launchArgs("/srv/a folder/file.md", homeTerminal, "/home/test")), [
+    "/home/test/bin/term",
+    "--title",
+    "x",
+    "-e",
+    "nvim",
+    "/srv/a folder/file.md"
+]);
+// The user's terminal decides the switch, so any terminal the user enters works, not only the ones the plugin knows.
+const otherTerminal = Object.assign({}, properties, { executable: "/opt/term/run --" });
+assert.deepEqual(plain(api.launchArgs("/srv/x", otherTerminal, "/home/test")), [
+    "/opt/term/run",
+    "--",
+    "nvim",
+    "/srv/x"
+]);
 assert.throws(
     () => api.launchArgs("", properties, "/home/test"),
     (error) => error.code === "providerConfig"
 );
 
-// Validation: the executable must name NeoVim, the probe prints its version, and the history must not be empty.
-assert.deepEqual(plain(api.validationArgs(properties, "/home/test")), ["/usr/bin/nvim", "--version"]);
+// An empty terminal command, the default before the user fills it in, is refused by the validator's first call and by the launch.
+const unfilled = Object.assign({}, properties, { executable: "" });
+assert.throws(
+    () => api.validationArgs(unfilled, "/home/test"),
+    (error) => error.field === "executable" && error.userMessage.includes("ghostty -e")
+);
+assert.throws(
+    () => api.launchArgs("/srv/x", unfilled, "/home/test"),
+    (error) => error.field === "executable"
+);
+
+// Flatpak and Snap launch their NeoVim through their launcher, after the same terminal command.
+const flatpak = Object.assign({}, properties, { installationType: "flatpak", extraArguments: ["--clean"] });
+assert.deepEqual(plain(api.launchArgs("/srv/x", flatpak, "/home/test")), [
+    "ghostty",
+    "-e",
+    "flatpak",
+    "run",
+    "io.neovim.nvim",
+    "--clean",
+    "/srv/x"
+]);
+const snap = Object.assign({}, properties, { installationType: "snap", extraArguments: [] });
+assert.deepEqual(plain(api.launchArgs("/srv/x", snap, "/home/test")), [
+    "ghostty",
+    "-e",
+    "snap",
+    "run",
+    "nvim",
+    "/srv/x"
+]);
+
+// The validator resolves the terminal program from the first word; the probe checks NeoVim itself, not the terminal.
+assert.deepEqual(plain(api.validationArgs(properties, "/home/test")), ["ghostty"]);
+assert.deepEqual(plain(api.validationProbe(properties, "/usr/bin/ghostty")), ["nvim", "--version"]);
+assert.deepEqual(plain(api.validationProbe(flatpak, "/usr/bin/ghostty")), [
+    "flatpak",
+    "info",
+    "--show-ref",
+    "io.neovim.nvim"
+]);
+assert.deepEqual(plain(api.validationProbe(snap, "/usr/bin/ghostty")), ["snap", "list", "nvim"]);
 assert.equal(api.validateExecutable("NVIM v0.12.6\nBuild type: RelWithDebInfo", properties), true);
 assert.throws(
     () => api.validateExecutable("VIM - Vi IMproved 9.1", properties),
+    (error) => error.field === "executable"
+);
+assert.equal(api.validateExecutable("app/io.neovim.nvim/x86_64/stable\n", flatpak), true);
+assert.throws(
+    () => api.validateExecutable("app/org.example.Other/x86_64/stable", flatpak),
+    (error) => error.field === "executable"
+);
+assert.equal(api.validateExecutable("Name  Version  Rev\nnvim   0.12.6   1\n", snap), true);
+assert.throws(
+    () => api.validateExecutable("Name Version Rev\nother 1.0 1", snap),
     (error) => error.field === "executable"
 );
 assert.equal(api.validateArguments("", "", Object.assign({}, properties, { extraArguments: ["--clean"] })), true);
@@ -109,69 +156,34 @@ assert.throws(
 );
 assert.equal(api.validateHistory([{ path: "/srv/x" }], properties), true);
 
-// The state folder and terminal are required, while the history file is optional.
+// Only the state folder and the optional history file are checked as paths; the terminal is checked through its program.
 const paths = plain(api.validationPaths(properties, "/home/test", "/home/test/.config"));
 assert.deepEqual(
     paths.map((target) => [target.label, target.kind, target.optional]),
     [
         ["NeoVim state folder", "directory", false],
-        ["NeoVim ShaDa history file", "file", true],
-        ["Terminal emulator", "file", false]
+        ["NeoVim ShaDa history file", "file", true]
     ]
 );
 assert.equal(paths[1].path, "/home/test/.local/state/nvim/shada/main.shada");
 
 // Damaged history is reported to the reader instead of returning partial records.
 assert.throws(
-    () => api.parseHistory({ text: "abc", directories: [] }, properties),
+    () =>
+        api.parseHistory(
+            { bytes: shadaBytes([{ type: 10, timestamp: 1, data: { f: "/srv/x" } }]).slice(0, 5), directories: [] },
+            properties
+        ),
     (error) => error.code === "parse"
 );
-// Flatpak runs NeoVim through flatpak, with its application ID before NeoVim's own arguments.
-const flatpakProperties = Object.assign({}, properties, {
-    installationType: "flatpak",
-    executable: "/usr/bin/flatpak",
-    extraArguments: ["--clean"]
-});
-assert.deepEqual(plain(api.launchArgs("/srv/x", flatpakProperties, "/home/test")), [
-    "/usr/bin/gnome-terminal",
-    "--",
-    "/usr/bin/flatpak",
-    "run",
-    "io.neovim.nvim",
-    "--clean",
-    "/srv/x"
-]);
-assert.deepEqual(plain(api.validationArgs(flatpakProperties, "/home/test")), [
-    "/usr/bin/flatpak",
-    "info",
-    "--show-ref",
-    "io.neovim.nvim"
-]);
-assert.equal(api.validateExecutable("app/io.neovim.nvim/x86_64/stable\n", flatpakProperties), true);
-assert.throws(
-    () => api.validateExecutable("app/org.example.Other/x86_64/stable", flatpakProperties),
-    (error) => error.field === "executable"
-);
-
-// Snap runs the classic nvim snap through snap run, and its list output names the package.
-const snapProperties = Object.assign({}, properties, {
-    installationType: "snap",
-    executable: "/usr/bin/snap",
-    extraArguments: []
-});
-assert.deepEqual(plain(api.launchArgs("/srv/x", snapProperties, "/home/test")), [
-    "/usr/bin/gnome-terminal",
-    "--",
-    "/usr/bin/snap",
-    "run",
-    "nvim",
-    "/srv/x"
-]);
-assert.deepEqual(plain(api.validationArgs(snapProperties, "/home/test")), ["/usr/bin/snap", "list", "nvim"]);
-assert.equal(api.validateExecutable("Name  Version  Rev\nnvim   0.12.6   1\n", snapProperties), true);
-assert.throws(
-    () => api.validateExecutable("Name Version Rev\nother 1.0 1", snapProperties),
-    (error) => error.field === "executable"
-);
-
 console.log("NeoVimApi tests passed");
+
+// The validator resolves only the terminal program, so the validation command is that one word, and the shared failure helper is defined once.
+assert.deepEqual(plain(api.validationArgs(properties, "/home/test")), ["ghostty"]);
+const commandsModule = source("Providers/NeoVim/JS/NeoVimCommands.js");
+assert.throws(
+    () => commandsModule.fail("message", "details", "field"),
+    (error) => error.field === "field"
+);
+assert.equal(typeof api.fail, "undefined", "the API uses the shared failure helper from NeoVimCommands");
+console.log("NeoVimApi duplicate-helper tests passed");

@@ -18,14 +18,15 @@ Item {
         systemLaunchCheck.start();
     }
 
+    // The launcher asks Dux for a refresh through the plugin service; the check counts those requests after a scan.
     Connections {
-        function onLauncherPluginVisibilityChanged() {
+        function onRequestLauncherUpdate(changedPluginId) {
             if (Services.ScanState.scannedAt)
                 root.liveRefreshNotifications++;
 
         }
 
-        target: HostCommon.SettingsData
+        target: checks.pluginService
     }
 
     Connections {

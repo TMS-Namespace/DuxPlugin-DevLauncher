@@ -27,7 +27,37 @@ assert.deepEqual(Array.from(api.launchArgs("/tmp/project", properties, "/home/te
 assert.equal(records.length, 3);
 assert.equal(records[1].path, "vscode-remote://host/project");
 assert.equal(records[2].kind, "file");
-assert.equal(records[2].openedAt, 100);
+// Each entry's date is the previous entry's date less its own step: (1.13 ^ order_index) hours, capped at ten days.
+const hour = 60 * 60 * 1000;
+const cap = 240 * hour;
+const steps = (count) => Array.from({ length: count }, (value, index) => Math.min(Math.pow(1.13, index) * hour, cap));
+const plainRecords = JSON.parse(JSON.stringify(records));
+let expectedDate = 1700000000000;
+const expectedDates = steps(3).map((step) => (expectedDate = Math.round(expectedDate - step)));
+assert.deepEqual(
+    plainRecords.map((record) => record.openedAt),
+    expectedDates
+);
+assert.deepEqual(
+    plainRecords.map((record) => record.recent),
+    expectedDates
+);
+// Far down the list each step is capped at ten days, and every entry stays strictly older than the one before it.
+const deepRecords = api.parseHistory(
+    {
+        history: {
+            entries: Array.from({ length: 120 }, (value, index) => ({ folderUri: "file:///tmp/item" + index }))
+        },
+        modifiedAt: 1700000000000
+    },
+    properties
+);
+const deepDates = JSON.parse(JSON.stringify(deepRecords)).map((record) => record.openedAt);
+assert.ok(
+    deepDates.every((date, index) => index === 0 || date < deepDates[index - 1]),
+    "every entry is older than the one before"
+);
+assert.equal(deepDates[119], Math.round(1700000000000 - steps(120).reduce((total, step) => total + step, 0)));
 // Without a history file time, the stored order must still rank the most recent entry first.
 const undatedRecords = api.parseHistory(
     { history: { entries: [{ folderUri: "file:///tmp/newest" }, { folderUri: "file:///tmp/older" }] }, modifiedAt: 0 },

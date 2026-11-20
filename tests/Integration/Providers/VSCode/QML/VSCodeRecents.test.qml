@@ -24,12 +24,14 @@ QtObject {
             "extraArguments": []
         });
         const results = [];
+        // The stat for the database location never answers, like the history process the read is meant to abandon.
         const started = reader.read(VSCodeApi.create(), properties, function(records, message, details, succeeded) {
             results.push({
                 "count": records.length,
                 "message": message,
                 "succeeded": succeeded
             });
+        }, function() {
         });
         if (!fixture.expect(started && reader.running, "the history read did not start"))
             return false;

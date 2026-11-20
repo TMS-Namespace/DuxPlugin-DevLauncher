@@ -88,3 +88,34 @@ function gitMarkerAt(svgText, x, y, size) {
         "</g>"
     );
 }
+
+// Draw the remote marker, a small globe, on the same surface treatment as the Git marker.
+function remoteMarker(svgText) {
+    const color = lightBase(svgText) ? "#ffffff" : "#111820";
+    return (
+        surface(svgText, false) +
+        '<g transform="translate(49.5 49.5) scale(1.2) translate(-49.5 -49.5)" fill="none" stroke="' +
+        color +
+        '" stroke-width="2" stroke-linecap="round">' +
+        '<circle cx="49.5" cy="49.5" r="8"/>' +
+        '<ellipse cx="49.5" cy="49.5" rx="3.5" ry="8"/>' +
+        '<path d="M41.5 49.5h16"/>' +
+        "</g>"
+    );
+}
+
+// Place the remote marker in a corner surface sized like the other badges.
+function remoteMarkerAt(svgText, x, y, size) {
+    const scale = size / 30;
+    return (
+        '<g transform="translate(' +
+        x +
+        " " +
+        y +
+        ") scale(" +
+        scale +
+        ') translate(-34 -34)">' +
+        remoteMarker(svgText) +
+        "</g>"
+    );
+}

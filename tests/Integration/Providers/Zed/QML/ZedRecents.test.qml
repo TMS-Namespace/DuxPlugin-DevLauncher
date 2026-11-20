@@ -1,5 +1,6 @@
 // ZedRecents.test.qml - Read actual SQLite workspace, editor, and navigation data through the provider entry point.
 // Rules: Runs in the offscreen shell against a fixture SQLite database; a missing database must fail rather than look successful.
+import "../../../../../src/Plugin/QML/Services" as Services
 import "../../../../../src/Providers/Zed/JS/ZedApi.js" as Api
 import "../../../../../src/Providers/Zed/JS/ZedProperties.js" as Properties
 import "../../../../../src/Providers/Zed/QML/Integration" as Entry
@@ -55,8 +56,8 @@ QtObject {
                 checks.reader.destroy();
                 checks.reader = null;
                 next();
-            });
-        });
+            }, Services.FileMetadataService.statPath);
+        }, Services.FileMetadataService.statPath);
     }
 
 }

@@ -4,7 +4,6 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { spawnSync } = require("node:child_process");
 const source = require("../../../../../Helpers/LoadSource.cjs");
 const directory = path.join(os.homedir(), ".config/JetBrains");
 if (fs.existsSync(directory)) {
@@ -26,10 +25,8 @@ if (fs.existsSync(directory)) {
     if (folders.length) assert.ok(count > 0, "No Rider history records were read");
     const executable = path.join(os.homedir(), "JetBrains Rider/bin/rider");
     if (fs.existsSync(executable)) {
-        const probe = Array.from(api.validationProbe(properties, executable));
-        const answer = spawnSync(probe[0], probe.slice(1), { encoding: "utf8" });
-        assert.equal(answer.status, 0);
-        assert.equal(api.validateExecutable(answer.stdout, properties), true);
+        const metadataPath = api.validationFile(properties, executable);
+        assert.equal(api.validateExecutable(fs.readFileSync(metadataPath, "utf8"), properties), true);
     }
     console.log("T:PASS live Rider history entries=" + count);
 }

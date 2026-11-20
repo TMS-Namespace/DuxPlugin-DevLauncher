@@ -246,3 +246,12 @@ syntax, but does not yet check for issues such as undefined names or unused vari
 - Ask before assuming when a choice changes behaviour; otherwise pick the conventional default and say so.
 - When a rule changes, update the tests, the audits, the documentation and the changelog together.
 - Report what changed and what was not verified, plainly.
+
+## 13. Follow Dux Shell Plugin Developments Guidance
+
+That can be found at below address:
+
+- [https://duxlabs.dev/docs/dms/plugins-overview](https://duxlabs.dev/docs/dms/plugins-overview)
+- [https://duxlabs.dev/docs/dms/plugin-development](https://duxlabs.dev/docs/dms/plugin-development)
+- [https://github.com/TMS-Namespace/dms-plugin-registry/blob/master/CONTRIBUTING.md#contributing-a-plugin](https://github.com/TMS-Namespace/dms-plugin-registry/blob/master/CONTRIBUTING.md#contributing-a-plugin)
+- [https://duxlabs.dev/docs/contributing-registry](https://duxlabs.dev/docs/contributing-registry)

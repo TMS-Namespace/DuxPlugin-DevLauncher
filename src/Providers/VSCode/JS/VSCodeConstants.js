@@ -5,9 +5,13 @@ var PROVIDER_TYPE = "vscode";
 var RECENT_KEY = "history.recentlyOpenedPathsList";
 var JSON_KEY = "openedPathsList";
 var MAX_PER_LIST = 500;
+// VS Code keeps no launch dates. Each entry is dated the previous entry's date less (LAUNCH_DECAY_BASE ^ order_index) hours, starting from the most recent entry (order_index 0).
+var HOUR_MILLISECONDS = 60 * 60 * 1000;
+var LAUNCH_DECAY_BASE = 1.13;
+// Each step's deduction never exceeds ten days, so one step moves an entry back by at most that much.
+var LAUNCH_MAX_DEDUCTION_HOURS = 24 * 10;
 // Largest JSON history file read in one pass; a larger file is refused rather than read whole.
 var MAX_HISTORY_BYTES = 8 * 1024 * 1024;
-var HISTORY_READ_TIMEOUT = "4s";
 // The reader abandons a read whose process never answers, so one stuck process cannot block later reads.
 var READ_WATCHDOG_MILLISECONDS = 10000;
 var MAX_DIAGNOSTIC_CHARACTERS = 256;
