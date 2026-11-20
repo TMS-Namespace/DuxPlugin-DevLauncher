@@ -12,7 +12,7 @@
     },
     "settings": "./src/Plugin/QML/Settings.qml",
     "trigger": "`",
-    "icon": "material:account_tree",
+    "icon": "account_tree",
     "category": "productivity",
     "repo": "https://github.com/TMS-Namespace/DuxPlugin-DevLauncher",
     "permissions": ["settings_read", "settings_write", "process"],
