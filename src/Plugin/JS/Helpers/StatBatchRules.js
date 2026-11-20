@@ -1,6 +1,6 @@
 // StatBatchRules.js - Build batched stat commands for many paths, and read their modification times back.
 .pragma library
-.import "Config.js" as Config
+.import "Constants.js" as Constants
 
 // Split paths into groups no larger than the batch size, so one command never receives too many arguments.
 function batches(paths, size) {
@@ -12,7 +12,7 @@ function batches(paths, size) {
 // NUL separates timestamp/path fields, so tabs and newlines in names remain intact.
 // Arguments follow --. The caller runs the process with LC_ALL=C, so diagnostics use a fixed language.
 function command(paths) {
-    return ["timeout", Config.statBatchTimeout, "stat", "--printf=%Y\\0%n\\0", "--"].concat(paths);
+    return ["timeout", Constants.statBatchTimeout, "stat", "--printf=%Y\\0%n\\0", "--"].concat(paths);
 }
 
 // Read complete NUL-delimited timestamp/path pairs; a partial final record is ignored.

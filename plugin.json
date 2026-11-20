@@ -19,6 +19,6 @@
     "requires_dms": ">=2.0.0",
     "distro": ["any"],
     "compositors": ["any"],
-    "dependencies": ["find", "timeout", "stat", "which", "test", "xdg-open"],
+    "dependencies": ["find", "timeout", "stat", "which", "test", "xdg-open", "localstorage"],
     "screenshot": "https://github.com/TMS-Namespace/DuxPlugin-DevLauncher/raw/main/images/Launcher.png"
 }

@@ -2,7 +2,7 @@
 // Rules: This is the only object that reads or writes saved plugin settings; damaged values are backed up before a save can overwrite them.
 pragma Singleton
 
-import "../../JS/Helpers/Config.js" as Config
+import "../../JS/Helpers/Constants.js" as Constants
 import "../../JS/Helpers/SettingsIntegrity.js" as SettingsIntegrity
 import "../../JS/Storage/SettingsMigration.js" as SettingsMigration
 import QtQml
@@ -35,7 +35,7 @@ QtObject {
         if (!typeId)
             return ;
 
-        const value = pluginService.loadPluginData(Config.pluginId, "folders", undefined);
+        const value = pluginService.loadPluginData(Constants.pluginId, "folders", undefined);
         if (!Array.isArray(value) || !value.some(function(item) {
             return typeof item === "string";
         })) {
@@ -50,7 +50,7 @@ QtObject {
         if (!pluginService)
             return defaultValue;
 
-        const value = pluginService.loadPluginData(Config.pluginId, key, defaultValue);
+        const value = pluginService.loadPluginData(Constants.pluginId, key, defaultValue);
         if (SettingsIntegrity.damaged(key, value) && !reportedDamage[key]) {
             reportedDamage[key] = true;
             ErrorHandler.report("storage", "Some saved " + key + " settings are invalid. A copy will be kept if you change them.");
@@ -64,15 +64,15 @@ QtObject {
     // Preserve the original value before replacing settings that normalization would discard.
     // The backup never refuses a save: an unexpected backup shape is kept under "unreadable" by SettingsIntegrity.withBackup.
     function preserveDamagedValue(key) {
-        const current = SettingsData.getPluginSetting(Config.pluginId, key, undefined);
+        const current = SettingsData.getPluginSetting(Constants.pluginId, key, undefined);
         if (!SettingsIntegrity.damaged(key, current))
             return true;
 
-        const previous = SettingsData.getPluginSetting(Config.pluginId, "damagedSettingsBackup", {
+        const previous = SettingsData.getPluginSetting(Constants.pluginId, "damagedSettingsBackup", {
         });
         const backup = SettingsIntegrity.withBackup(previous, key, current);
-        SettingsData.setPluginSetting(Config.pluginId, "damagedSettingsBackup", backup);
-        return JSON.stringify(SettingsData.getPluginSetting(Config.pluginId, "damagedSettingsBackup", null)) === JSON.stringify(backup);
+        SettingsData.setPluginSetting(Constants.pluginId, "damagedSettingsBackup", backup);
+        return JSON.stringify(SettingsData.getPluginSetting(Constants.pluginId, "damagedSettingsBackup", null)) === JSON.stringify(backup);
     }
 
     // Save through Dux settings without the launcher reload emitted by savePluginData.
@@ -85,8 +85,8 @@ QtObject {
                 Logger.error("storage", "Could not preserve damaged settings before saving.");
                 return false;
             }
-            SettingsData.setPluginSetting(Config.pluginId, key, value);
-            if (JSON.stringify(SettingsData.getPluginSetting(Config.pluginId, key, null)) !== JSON.stringify(value))
+            SettingsData.setPluginSetting(Constants.pluginId, key, value);
+            if (JSON.stringify(SettingsData.getPluginSetting(Constants.pluginId, key, null)) !== JSON.stringify(value))
                 return false;
 
             // Usage counts and the group layout do not change scan or launcher results, so they announce no settings revision.

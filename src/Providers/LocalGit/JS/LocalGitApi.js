@@ -2,7 +2,7 @@
 .pragma library
 .import "../../../Plugin/JS/Contracts/ProviderApi.js" as Base
 .import "../../../Plugin/JS/Contracts/PluginError.js" as PluginError
-.import "../../../Plugin/JS/Helpers/Config.js" as Config
+.import "../../../Plugin/JS/Helpers/Constants.js" as PluginConstants
 .import "../../../Plugin/JS/Helpers/PathRules.js" as PathRules
 .import "FolderScanningHelper.js" as FolderScanningHelper
 .import "LocalGitConstants.js" as Constants
@@ -15,9 +15,11 @@ var LocalGitApi = class LocalGitApi extends Base.ProviderApi {
 
     // Keep the Git roots that find reported, each tagged with this folder's identity; the per-folder cap applies.
     parseHistory(snapshot, properties) {
-        return FolderScanningHelper.repositoryRoots(snapshot.output, Config.maxRepositories).map(function (record) {
-            return Object.assign({}, record, { provider: properties.providerId, providerName: properties.name });
-        });
+        return FolderScanningHelper.repositoryRoots(snapshot.output, PluginConstants.maxRepositories).map(
+            function (record) {
+                return Object.assign({}, record, { provider: properties.providerId, providerName: properties.name });
+            }
+        );
     }
 
     // A folder source never opens items.

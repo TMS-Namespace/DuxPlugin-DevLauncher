@@ -1,7 +1,7 @@
 // LocalGitRecents.qml - Run one bounded find on a scanned folder and hand its output to the provider API.
 // Each read starts a new find process, and a read in progress refuses a second start. An answer is accepted only from the
 // process of the current read, so a process that was stopped or replaced cannot change the next read.
-import "../../../Plugin/JS/Helpers/Config.js" as Config
+import "../../../Plugin/JS/Helpers/Constants.js" as PluginConstants
 import "../../../Plugin/JS/Helpers/ScanErrorRules.js" as ScanErrorRules
 import "../JS/FolderScanningHelper.js" as FolderScanningHelper
 import "../JS/LocalGitConstants.js" as Constants
@@ -70,8 +70,8 @@ QtObject {
         const timedOut = exitCode === 124 || exitCode === 137;
         if (exitCode !== 0)
             finish(records, ScanErrorRules.forFolder(folder, exitCode, errorOutput), errorOutput, !timedOut);
-        else if (records.length >= Config.maxRepositories)
-            finish(records, ScanErrorRules.limitReached(folder, Config.maxRepositories), "", true);
+        else if (records.length >= PluginConstants.maxRepositories)
+            finish(records, ScanErrorRules.limitReached(folder, PluginConstants.maxRepositories), "", true);
         else
             finish(records, "", "", true);
     }
@@ -101,7 +101,7 @@ QtObject {
             // The reader that created this process; it receives the answer.
             property var owner: null
 
-            environment: Config.commandEnvironment
+            environment: PluginConstants.commandEnvironment
             onExited: function(exitCode) {
                 exitStatus = exitCode;
                 hasExited = true;

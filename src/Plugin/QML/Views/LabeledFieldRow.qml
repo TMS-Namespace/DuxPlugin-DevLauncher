@@ -1,5 +1,5 @@
 // LabeledFieldRow.qml - Pair a visible left label with a right Dux text field.
-import "../../JS/Helpers/Config.js" as Config
+import "../../JS/Helpers/Constants.js" as Constants
 import QtQuick
 import QtQuick.Layouts
 import qs.Common
@@ -53,7 +53,7 @@ RowLayout {
     }
 
     ColumnLayout {
-        Layout.preferredWidth: Math.round(root.width * Config.settingsControlWidthFraction)
+        Layout.preferredWidth: Math.round(root.width * Constants.settingsControlWidthFraction)
         spacing: Theme.spacingS
 
         RowLayout {

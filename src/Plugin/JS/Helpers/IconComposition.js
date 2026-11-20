@@ -1,7 +1,7 @@
 // IconComposition.js - Place IDE badges, the Git marker, and the remote marker on an icon's corners as one SVG from prebuilt pieces.
 .pragma library
 .import "BadgeAppearanceRules.js" as BadgeAppearanceRules
-.import "Config.js" as Config
+.import "Constants.js" as Constants
 .import "IconImage.js" as IconImage
 // Rules: Pure SVG composition: no QML types, no logging, no I/O. A composition only reads pieces built ahead of time, and never builds one.
 
@@ -14,8 +14,8 @@ var darkStandIn =
 
 // The four corners a badge or marker may take, in the order a marker prefers them.
 function cornerSlots() {
-    const inset = Config.sourceBadgeInset;
-    const far = 64 - inset - Config.sourceBadgeSize;
+    const inset = Constants.sourceBadgeInset;
+    const far = 64 - inset - Constants.sourceBadgeSize;
     return [
         { left: far, top: far },
         { left: inset, top: inset },
@@ -26,18 +26,18 @@ function cornerSlots() {
 
 // The corner of one IDE badge: the first two take the right corners, the rest the left ones, alternating top and bottom.
 function badgeCorner(index, count, repository) {
-    const inset = Config.sourceBadgeInset;
-    const far = 64 - inset - Config.sourceBadgeSize;
+    const inset = Constants.sourceBadgeInset;
+    const far = 64 - inset - Constants.sourceBadgeSize;
     const top = count === 1 ? (repository ? inset : far) : index % 2 ? far : inset;
     return { left: index < 2 ? far : inset, top: top };
 }
 
 // The corner of the Git marker on a repository, or null when IDE badges take every corner.
 function gitCorner(count) {
-    const inset = Config.sourceBadgeInset;
-    const far = 64 - inset - Config.sourceBadgeSize;
+    const inset = Constants.sourceBadgeInset;
+    const far = 64 - inset - Constants.sourceBadgeSize;
     if (count <= 1) return { left: far, top: far };
-    if (count < Config.maxSourceBadges) return { left: inset, top: count === 2 ? inset : far };
+    if (count < Constants.maxSourceBadges) return { left: inset, top: count === 2 ? inset : far };
     return null;
 }
 
@@ -62,8 +62,8 @@ function markerKey(kind, light, corner) {
 
 // Build one IDE badge piece: its surface, then its image inside it.
 function badgePiece(standIn, corner, path, content) {
-    const size = Config.sourceBadgeSize;
-    const padding = Config.sourceBadgePadding;
+    const size = Constants.sourceBadgeSize;
+    const padding = Constants.sourceBadgePadding;
     return (
         BadgeAppearanceRules.surfaceAt(standIn, corner.left, corner.top, size) +
         IconImage.imageElement(path, content, corner.left + padding, corner.top + padding, size - padding * 2)
@@ -89,7 +89,7 @@ function dropBadge(pieces, path) {
 
 // Build the Git and remote marker pieces for every corner and both brightnesses. They do not depend on any IDE, so they are built once.
 function prepareMarkers(pieces) {
-    const size = Config.sourceBadgeSize;
+    const size = Constants.sourceBadgeSize;
     for (const light of [true, false]) {
         const standIn = light ? lightStandIn : darkStandIn;
         for (const corner of cornerSlots()) {
@@ -118,7 +118,7 @@ function composite(basePath, badgePaths, baseSvg, repository, remote, pieces) {
     const taken = [];
     let complete = true;
     let badges = "";
-    for (let index = 0; index < paths.length && index < Config.maxSourceBadges; index++) {
+    for (let index = 0; index < paths.length && index < Constants.maxSourceBadges; index++) {
         const corner = badgeCorner(index, paths.length, repository);
         taken.push(corner);
         const piece = store.values[badgeKey(light, corner, paths[index])];

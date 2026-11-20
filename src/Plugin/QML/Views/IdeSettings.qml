@@ -1,6 +1,6 @@
 // IdeSettings.qml - List configured IDEs and open the provider editor.
 // Rules: Rows show the saved IDEs and their last scan errors; every change goes through the controller.
-import "../../JS/Helpers/Config.js" as Config
+import "../../JS/Helpers/Constants.js" as Constants
 import "../Services"
 import QtQuick
 import QtQuick.Layouts
@@ -222,7 +222,7 @@ Column {
         shape: "round"
         anchors.horizontalCenter: parent.horizontalCenter
         visible: !root.controller.editorOpen
-        enabled: root.controller.providers.length < Config.maxProviders
+        enabled: root.controller.providers.length < Constants.maxProviders
         onClicked: root.controller.beginAdd()
     }
 

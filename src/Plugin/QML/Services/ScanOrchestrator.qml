@@ -1,7 +1,7 @@
 // ScanOrchestrator.qml - Coordinate host-owned scans and write each source's answer into the shared recent-items cache.
 // Every scan source is a provider: IDEs read their history, and each scanned folder is a folder provider.
-import "../../JS/Helpers/Config.js" as Config
 import "../../JS/Helpers/ConfigurationRules.js" as ConfigurationRules
+import "../../JS/Helpers/Constants.js" as Constants
 import "../../JS/Helpers/RepositoryNotificationRules.js" as RepositoryNotificationRules
 import "../BackgroundWorkers"
 import QtQuick
@@ -10,7 +10,7 @@ Item {
     id: root
 
     property var pluginService: null
-    property string pluginId: Config.pluginId
+    property string pluginId: Constants.pluginId
     property string activeConfiguration: ""
     property bool rescanPending: false
     property bool scanRunning: false
@@ -28,7 +28,7 @@ Item {
 
     // Compare settings without touching provider state or launching processes.
     function configuration() {
-        return JSON.stringify(ConfigurationRules.scan(DataStorage.load("folders", Config.folders), DataStorage.load("providers", ProvidersManager.defaultConfigurations()), DataStorage.load("repositoryDepth", Config.defaultRepositoryDepth)));
+        return JSON.stringify(ConfigurationRules.scan(DataStorage.load("folders", Constants.folders), DataStorage.load("providers", ProvidersManager.defaultConfigurations()), DataStorage.load("repositoryDepth", Constants.defaultRepositoryDepth)));
     }
 
     // The identifiers of the saved scan folders, used to tell which folders were just added.
@@ -200,7 +200,7 @@ Item {
         RecentItemsCache.start();
         if (pluginService)
             observedFolders = folderIds({
-            "folders": ConfigurationRules.folderEntries(DataStorage.load("folders", Config.folders))
+            "folders": ConfigurationRules.folderEntries(DataStorage.load("folders", Constants.folders))
         });
 
     }
@@ -209,7 +209,7 @@ Item {
         RecentItemsCache.start();
         if (pluginService)
             observedFolders = folderIds({
-            "folders": ConfigurationRules.folderEntries(DataStorage.load("folders", Config.folders))
+            "folders": ConfigurationRules.folderEntries(DataStorage.load("folders", Constants.folders))
         });
 
     }

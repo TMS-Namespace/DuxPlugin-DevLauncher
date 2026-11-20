@@ -2,7 +2,7 @@
 const assert = require("node:assert/strict");
 const source = require("../../../../Helpers/LoadSource.cjs");
 const argumentsRules = source("Helpers/ArgumentRules.js");
-const config = source("Helpers/Config.js");
+const config = source("Helpers/Constants.js");
 assert.deepEqual(Array.from(argumentsRules.validate(["--profile", "Work Space"])), ["--profile", "Work Space"]);
 assert.throws(() => argumentsRules.validate("--reuse-window"));
 assert.throws(() => argumentsRules.validate([""]));

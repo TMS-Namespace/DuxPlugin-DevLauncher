@@ -1,6 +1,6 @@
 // FileMetadataService.qml - Verify result paths and cache Dux file metadata by path and type.
 import "../../JS/Helpers/CacheRules.js" as CacheRules
-import "../../JS/Helpers/Config.js" as Config
+import "../../JS/Helpers/Constants.js" as Constants
 import "../../JS/Helpers/FileMetadataRules.js" as FileMetadataRules
 import "../../JS/Helpers/FileStatusRules.js" as FileStatusRules
 import "../../JS/Helpers/PathRules.js" as PathRules
@@ -36,7 +36,7 @@ QtObject {
     function request(items, refreshCached) {
         const visible = {
         };
-        for (const item of items.slice(0, Config.maxResults)) visible[item.path] = true
+        for (const item of items.slice(0, Constants.maxResults)) visible[item.path] = true
         wanted = visible;
         const remaining = [];
         for (const task of queue) {
@@ -47,19 +47,19 @@ QtObject {
         }
         queue = remaining;
         if (!Host.files || !Host.files.connected || typeof Host.files.stat !== "function") {
-            if (!connectionTimer.running && connectionChecks < Config.maxFileServiceReconnectAttempts)
+            if (!connectionTimer.running && connectionChecks < Constants.maxFileServiceReconnectAttempts)
                 connectionTimer.start();
 
             return ;
         }
         connectionChecks = 0;
         const now = Date.now();
-        for (const item of items.slice(0, Config.maxResults)) {
+        for (const item of items.slice(0, Constants.maxResults)) {
             const path = item.path;
             if (PathRules.resourceType(path) === "remote")
                 continue;
 
-            if ((pathCache[path] && (refreshCached === false || pathCache[path].expiresAt > now)) || pending[path] || queue.length + activeLookups >= Config.maxIconQueue)
+            if ((pathCache[path] && (refreshCached === false || pathCache[path].expiresAt > now)) || pending[path] || queue.length + activeLookups >= Constants.maxIconQueue)
                 continue;
 
             pending[path] = true;
@@ -76,14 +76,14 @@ QtObject {
         if (!Host.files || !Host.files.connected)
             return ;
 
-        while (activeLookups < Config.maxIconLookups && queue.length) {
+        while (activeLookups < Constants.maxIconLookups && queue.length) {
             const task = queue.shift();
             const path = task.path;
             const key = FileMetadataRules.cacheKey(path, task.kind);
             activeLookups++;
             let settled = false;
             const timeout = timeoutType.createObject(root, {
-                "interval": Config.iconLookupTimeoutMilliseconds
+                "interval": Constants.iconLookupTimeoutMilliseconds
             });
             // A missing backend answer must not occupy a queue slot forever.
             function complete(result) {
@@ -103,13 +103,13 @@ QtObject {
                 pathCache[path] = {
                     "exists": !isMissing,
                     "modifiedAt": entry ? Number(entry.mtimeMs) || 0 : 0,
-                    "expiresAt": now + (isMissing ? Config.missingPathRetryMilliseconds : entry ? Config.iconCacheMilliseconds : Config.iconLookupTimeoutMilliseconds)
+                    "expiresAt": now + (isMissing ? Constants.missingPathRetryMilliseconds : entry ? Constants.iconCacheMilliseconds : Constants.iconLookupTimeoutMilliseconds)
                 };
                 if (isNewPath)
                     pathCount++;
 
-                if (pathCount > Config.maxMetadataEntries)
-                    pathCount -= CacheRules.evictOldest(pathCache, pathCount - Config.maxMetadataEntries);
+                if (pathCount > Constants.maxMetadataEntries)
+                    pathCount -= CacheRules.evictOldest(pathCache, pathCount - Constants.maxMetadataEntries);
 
                 if (entry) {
                     const iconName = String(entry.iconName || "");
@@ -117,13 +117,13 @@ QtObject {
                         const isNewIcon = !Object.prototype.hasOwnProperty.call(cache, key);
                         cache[key] = {
                             "iconName": iconName,
-                            "expiresAt": now + (iconName ? Config.iconCacheMilliseconds : Config.iconLookupTimeoutMilliseconds)
+                            "expiresAt": now + (iconName ? Constants.iconCacheMilliseconds : Constants.iconLookupTimeoutMilliseconds)
                         };
                         if (isNewIcon)
                             iconCount++;
 
-                        if (iconCount > Config.maxIconEntries)
-                            iconCount -= CacheRules.evictOldest(cache, iconCount - Config.maxIconEntries);
+                        if (iconCount > Constants.maxIconEntries)
+                            iconCount -= CacheRules.evictOldest(cache, iconCount - Constants.maxIconEntries);
 
                     }
                 }
@@ -212,20 +212,20 @@ QtObject {
     }
 
     refreshTimer: Timer {
-        interval: Config.iconRefreshDebounceMilliseconds
+        interval: Constants.iconRefreshDebounceMilliseconds
         repeat: false
         onTriggered: root.metadataChanged()
     }
     // Retry a few times when Dux's file service connects after the launcher opens.
 
     connectionTimer: Timer {
-        interval: Config.fileServiceReconnectMilliseconds
+        interval: Constants.fileServiceReconnectMilliseconds
         repeat: false
         onTriggered: {
             if (Host.files && Host.files.connected) {
                 root.connectionChecks = 0;
                 root.metadataChanged();
-            } else if (++root.connectionChecks < Config.maxFileServiceReconnectAttempts) {
+            } else if (++root.connectionChecks < Constants.maxFileServiceReconnectAttempts) {
                 restart();
             }
         }

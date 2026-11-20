@@ -1,6 +1,6 @@
 // ProviderValidator.qml - Check one draft IDE executable and its recent history asynchronously.
 // Rules: Only one check runs at a time, and a finished check reports its result without saving any setting.
-import "../../JS/Helpers/Config.js" as Config
+import "../../JS/Helpers/Constants.js" as Constants
 import "../Services"
 import QtQuick
 import Quickshell.Io
@@ -35,7 +35,7 @@ Item {
         executableProcess.outputText = "";
         executableProcess.hasExited = false;
         executableProcess.hasStreamed = false;
-        executableProcess.command = ["timeout", Config.providerValidationTimeout, "which", handler.validationArgs()[0]];
+        executableProcess.command = ["timeout", Constants.providerValidationTimeout, "which", handler.validationArgs()[0]];
         executableProcess.running = true;
         return true;
     }
@@ -51,7 +51,7 @@ Item {
             return ;
         }
         pathProcess.flag = flag;
-        pathProcess.command = ["timeout", Config.providerValidationTimeout, "test", flag, target.path];
+        pathProcess.command = ["timeout", Constants.providerValidationTimeout, "test", flag, target.path];
         pathProcess.running = true;
     }
 
@@ -105,7 +105,7 @@ Item {
         if (!probe || !probe.length)
             argumentsList[0] = resolvedPath;
 
-        versionProcess.command = ["timeout", Config.providerValidationTimeout].concat(argumentsList);
+        versionProcess.command = ["timeout", Constants.providerValidationTimeout].concat(argumentsList);
         versionProcess.running = true;
     }
 

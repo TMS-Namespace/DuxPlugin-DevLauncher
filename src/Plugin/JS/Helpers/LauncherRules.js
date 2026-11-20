@@ -1,7 +1,7 @@
 // LauncherRules.js - Filter the ordered cache for one query and present each entry as a launcher item.
 .pragma library
 .import "AgeFilterRules.js" as AgeFilterRules
-.import "Config.js" as Config
+.import "Constants.js" as Constants
 .import "OpenWithRules.js" as OpenWithRules
 .import "RecentCacheDates.js" as RecentCacheDates
 .import "PathRules.js" as PathRules
@@ -86,7 +86,7 @@ function items(entries, query, options) {
             count: entry.count,
             primaryAction: { name: "Launch", icon: "rocket_launch", action: "execute" },
             categories: ["Dev Launcher"],
-            _preScored: Config.launcherInitialScore - index
+            _preScored: Constants.launcherInitialScore - index
         };
     });
 }

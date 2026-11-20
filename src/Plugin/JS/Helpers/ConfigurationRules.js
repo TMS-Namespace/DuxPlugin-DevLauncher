@@ -1,6 +1,6 @@
 // ConfigurationRules.js - Bound current-format user settings before scanning.
 .pragma library
-.import "Config.js" as Config
+.import "Constants.js" as Constants
 .import "PathRules.js" as PathRules
 .import "ProviderIdentity.js" as ProviderIdentity
 // Rules: Pure settings normalization: drops invalid saved entries instead of throwing; no QML types or logging.
@@ -24,8 +24,8 @@ function folderAddition(value, currentEntries) {
                     ". Remove it before adding the parent folder."
             };
     }
-    if ((currentEntries || []).length >= Config.maxScanFolders)
-        return { path: "", error: "You can scan at most " + Config.maxScanFolders + " folders." };
+    if ((currentEntries || []).length >= Constants.maxScanFolders)
+        return { path: "", error: "You can scan at most " + Constants.maxScanFolders + " folders." };
     return { path: path, error: "" };
 }
 
@@ -68,7 +68,7 @@ function providers(value) {
         .filter(function (entry) {
             return entry && typeof entry === "object" && !Array.isArray(entry);
         })
-        .slice(0, Config.maxProviders);
+        .slice(0, Constants.maxProviders);
 }
 
 // Use a current provider name or the empty system-default selection.
@@ -84,9 +84,9 @@ function defaultProvider(value, providerList) {
 // Keep repository search depth in the range offered by the settings slider.
 function repositoryDepth(value) {
     const number = Number(value);
-    return Number.isInteger(number) && number >= Config.minRepositoryDepth && number <= Config.maxRepositoryDepth
+    return Number.isInteger(number) && number >= Constants.minRepositoryDepth && number <= Constants.maxRepositoryDepth
         ? number
-        : Config.defaultRepositoryDepth;
+        : Constants.defaultRepositoryDepth;
 }
 
 // Find where the open IDE editor's row moves after another IDE is removed, or -1 when that row was removed.

@@ -5,7 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const source = require("../../../../Helpers/LoadSource.cjs");
-const defaults = source("Helpers/Config.js");
+const defaults = source("Helpers/Constants.js");
 const helper = source("Providers/LocalGit/JS/FolderScanningHelper.js");
 
 // The find output is parsed into one record per repository root, listed once, capped at the limit.

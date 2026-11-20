@@ -1,4 +1,4 @@
-// Config.js - User-facing defaults and fixed resource limits.
+// Constants.js - Fixed plugin values: defaults that settings start from, resource limits, timeouts, and sizes.
 .pragma library
 // Rules: Constants only: no logic, no QML types, no logging; defaults and limits are declared here.
 var pluginId = "devLauncher";
@@ -56,6 +56,10 @@ var refreshMilliseconds = 10000;
 var isDevMode = false;
 var errorNotificationInterval = 30000;
 
+// Badge sizes in pixels. A badge is bounded by the file and folder icon sizes that Dux provides and by what the launcher
+// displays. The sizes are fixed so that up to four badges fit a 2x2 grid in the corners of the icon, with space left
+// within the base icon so it stays visible. Every badge is pre-rendered and cached, so a size that changed per result
+// would slow drawing and would need every cached badge to be rebuilt.
 // Maximum number of IDE sources shown over one result icon.
 var maxSourceBadges = 4;
 var sourceBadgeSize = 28;

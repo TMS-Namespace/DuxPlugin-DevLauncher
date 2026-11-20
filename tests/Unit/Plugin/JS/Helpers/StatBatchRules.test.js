@@ -2,7 +2,7 @@
 const assert = require("node:assert/strict");
 const source = require("../../../../Helpers/LoadSource.cjs");
 const batches = source("Helpers/StatBatchRules.js");
-const config = source("Helpers/Config.js");
+const config = source("Helpers/Constants.js");
 
 assert.deepEqual(
     Array.from(batches.batches(["/a", "/b", "/c"], 2), (group) => group.length),

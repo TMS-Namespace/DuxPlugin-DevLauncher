@@ -1,11 +1,11 @@
 // Logger.qml - Centralize optional development diagnostics.
 pragma Singleton
 
-import "../../JS/Helpers/Config.js" as Config
+import "../../JS/Helpers/Constants.js" as Constants
 import QtQml
 
 QtObject {
-    property bool isDevMode: Config.isDevMode
+    property bool isDevMode: Constants.isDevMode
     property var sink: function(level, scope, message) {
         (level === "error" ? console.warn : console.info)("[Dev Launcher/" + scope + "]", message);
     }

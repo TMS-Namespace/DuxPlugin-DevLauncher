@@ -99,7 +99,7 @@ QtObject {
         if (!storageChecks.checkDamagedSettings() || !storageChecks.checkCorruptBackupIsKept() || !storageChecks.checkInstallationDefaultsOnLoad())
             return false;
 
-        if (!providersChecks.checkDuplicateIdentifierRefused() || !providersChecks.checkValidationPathsMatchFacade() || !providersChecks.checkDefaultsSeedDeclaredIdeOnly() || !errorChecks.checkDetailsStayOutOfToast() || !databaseChecks.checkApostrophePathRead() || !folderViewChecks.checkFolderRowShowsScanError() || !errorChecks.checkLaunchErrorsAlwaysShown())
+        if (!providersChecks.checkDuplicateIdentifierRefused() || !providersChecks.checkValidationPathsMatchFacade() || !providersChecks.checkDefaultsSeedDeclaredIdeOnly() || !errorChecks.checkDetailsStayOutOfToast() || !databaseChecks.checkApostrophePathRead() || !folderViewChecks.checkFolderRowShowsScanError() || !errorChecks.checkLaunchErrorsAlwaysShown() || !errorChecks.checkDifferentErrorsNotDropped())
             return false;
 
         if (!readerChecks.checkStuckReadMovesOnThenEnds() || !readerChecks.checkClearedHistoryRemovesItems() || !orchestratorChecks.checkProviderErrorsStayOutOfToast() || !orchestratorChecks.checkFailedReadKeepsItems() || !orchestratorChecks.checkKnownSourcesSurviveScan())

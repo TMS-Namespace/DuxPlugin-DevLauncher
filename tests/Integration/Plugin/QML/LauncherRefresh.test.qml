@@ -1,5 +1,5 @@
 // LauncherRefresh.test.qml - A redraw reads the cache; throttled discovery never schedules work for later.
-import "../../../../src/Plugin/JS/Helpers/Config.js" as Config
+import "../../../../src/Plugin/JS/Helpers/Constants.js" as Constants
 import "../../../../src/Plugin/QML/Services" as Services
 import QtQuick
 
@@ -32,8 +32,8 @@ QtObject {
         });
         Services.ScanState.scannedAt = Date.now();
         launcher.getItems("example");
-        Services.ScanState.scannedAt = Date.now() - Config.refreshMilliseconds - 1;
-        launcher.lastRequest = Date.now() - Config.refreshMilliseconds + 50;
+        Services.ScanState.scannedAt = Date.now() - Constants.refreshMilliseconds - 1;
+        launcher.lastRequest = Date.now() - Constants.refreshMilliseconds + 50;
         launcher.getItems("example typed");
         expectedRequest = Services.ScanState.refreshRequestedAt;
         expectedSortCount = Services.RecentItemsCache.sortCount;

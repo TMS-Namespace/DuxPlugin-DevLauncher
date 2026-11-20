@@ -1,6 +1,6 @@
 // ResultItemIcon.qml - Build launcher icon descriptors and cache executable icon assets.
 // Rules: Each SVG is read once, kept within a size and count bound, and a failed or oversized SVG read is stored as empty and is not retried while its entry stays cached.
-import "../../JS/Helpers/Config.js" as Config
+import "../../JS/Helpers/Constants.js" as Constants
 import "../../JS/Helpers/ExecutableIconRules.js" as ExecutableIconRules
 import "../../JS/Helpers/IconComposition.js" as IconComposition
 import "../../JS/Helpers/IconMemo.js" as IconMemo
@@ -38,7 +38,7 @@ QtObject {
     property var svgQueue: []
     property int activeSvgReads: 0
     property int revision: 0
-    // The composed icons already built, keyed by everything they depend on; bounded by Config.maxIconMemoEntries.
+    // The composed icons already built, keyed by everything they depend on; bounded by Constants.maxIconMemoEntries.
     property var iconMemo: ({
     })
     property var iconMemoOrder: []
@@ -68,7 +68,7 @@ QtObject {
         if (svgContents[iconPath] !== undefined)
             return svgContents[iconPath];
 
-        if (!pendingSvg[iconPath] && svgQueue.length + activeSvgReads < Config.maxSvgEntries) {
+        if (!pendingSvg[iconPath] && svgQueue.length + activeSvgReads < Constants.maxSvgEntries) {
             pendingSvg[iconPath] = true;
             svgQueue = svgQueue.concat([iconPath]);
             startSvgReads();
@@ -78,7 +78,7 @@ QtObject {
 
     // Read only a few theme files at once, then notify active launcher results.
     function startSvgReads() {
-        while (activeSvgReads < Config.maxIconLookups && svgQueue.length) {
+        while (activeSvgReads < Constants.maxIconLookups && svgQueue.length) {
             const iconPath = svgQueue.shift();
             activeSvgReads++;
             svgReaderType.createObject(root, {
@@ -92,9 +92,9 @@ QtObject {
         const updated = Object.assign({
         }, svgContents);
         const value = String(content || "");
-        updated[iconPath] = value.length <= Config.maxSvgCharacters ? value : "";
+        updated[iconPath] = value.length <= Constants.maxSvgCharacters ? value : "";
         const paths = Object.keys(updated);
-        for (const oldPath of paths.slice(0, Math.max(0, paths.length - Config.maxSvgEntries))) delete updated[oldPath]
+        for (const oldPath of paths.slice(0, Math.max(0, paths.length - Constants.maxSvgEntries))) delete updated[oldPath]
         svgContents = updated;
         delete pendingSvg[iconPath];
         activeSvgReads = Math.max(0, activeSvgReads - 1);
@@ -216,7 +216,7 @@ QtObject {
             if (badge)
                 badgePaths.push(badge);
 
-            if (badgePaths.length >= Config.maxSourceBadges)
+            if (badgePaths.length >= Constants.maxSourceBadges)
                 break;
 
         }
@@ -261,7 +261,7 @@ QtObject {
         };
         // Only a complete icon is remembered: one missing a piece is shown as it is, and is built again once its piece exists.
         if (!waiting && built.complete)
-            IconMemo.rememberBounded(iconMemo, iconMemoOrder, memoKey, descriptor, Config.maxIconMemoEntries);
+            IconMemo.rememberBounded(iconMemo, iconMemoOrder, memoKey, descriptor, Constants.maxIconMemoEntries);
 
         return descriptor;
     }
@@ -312,7 +312,7 @@ QtObject {
     }
 
     refreshTimer: Timer {
-        interval: Config.iconRefreshDebounceMilliseconds
+        interval: Constants.iconRefreshDebounceMilliseconds
         repeat: false
         onTriggered: {
             root.revision++;

@@ -4,7 +4,7 @@
 .import "AgeFilterRules.js" as AgeFilterRules
 .import "ResultRules.js" as ResultRules
 .import "TriggerRules.js" as TriggerRules
-.import "Config.js" as Config
+.import "Constants.js" as Constants
 .import "PathRules.js" as PathRules
 // Rules: Pure damage detection and backup shaping: keeps every damaged value and never discards one; no QML types or logging.
 
@@ -27,10 +27,10 @@ function damaged(key, value) {
         return (
             typeof value !== "number" ||
             !Number.isInteger(value) ||
-            value < Config.minRepositoryDepth ||
-            value > Config.maxRepositoryDepth
+            value < Constants.minRepositoryDepth ||
+            value > Constants.maxRepositoryDepth
         );
-    if (key === "trigger") return TriggerRules.error(value, Config.pluginId, {}, {}) !== "";
+    if (key === "trigger") return TriggerRules.error(value, Constants.pluginId, {}, {}) !== "";
     if (key === "searchPaths" || key === "showBadges") return typeof value !== "boolean";
     if (key === "defaultProvider") return typeof value !== "string";
     if (key === "usage") {
@@ -38,7 +38,7 @@ function damaged(key, value) {
             !value ||
             typeof value !== "object" ||
             Array.isArray(value) ||
-            Object.keys(value).length > Config.maxUsageEntries
+            Object.keys(value).length > Constants.maxUsageEntries
         )
             return true;
         return Object.keys(value).some(function (path) {

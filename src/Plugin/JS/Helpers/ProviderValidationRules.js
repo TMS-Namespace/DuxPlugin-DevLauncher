@@ -1,12 +1,12 @@
 // ProviderValidationRules.js - Compare installation paths and identify draft readiness.
 .pragma library
 .import "PathRules.js" as PathRules
-.import "Config.js" as Config
+.import "Constants.js" as Constants
 .import "../Contracts/PluginError.js" as PluginError
 
 // Reject malformed or unbounded provider path declarations before any process runs.
 function targets(values) {
-    if (!Array.isArray(values) || !values.length || values.length > Config.maxProviderValidationPaths)
+    if (!Array.isArray(values) || !values.length || values.length > Constants.maxProviderValidationPaths)
         throw new PluginError.PluginError(
             PluginError.Code.PROVIDER_CONFIG,
             "This IDE provider could not validate its folders.",

@@ -1,8 +1,8 @@
 // SettingsController.qml - Own editable folder and IDE lists for one settings page.
 // Rules: An IDE is saved only after its draft passes the provider check, and a check that finished after an edit is ignored.
 import "../../JS/Helpers/AgeFilterRules.js" as AgeFilterRules
-import "../../JS/Helpers/Config.js" as Config
 import "../../JS/Helpers/ConfigurationRules.js" as ConfigurationRules
+import "../../JS/Helpers/Constants.js" as Constants
 import "../../JS/Helpers/DraftRules.js" as DraftRules
 import "../../JS/Helpers/ProviderIdentity.js" as ProviderIdentity
 import "../../JS/Helpers/ProviderValidationRules.js" as ValidationRules
@@ -23,13 +23,13 @@ Item {
     // The saved IDE installations shown in the settings list.
     property var providers: []
     property string defaultProvider: ""
-    property string trigger: Config.trigger
-    property int resultsLimit: Config.defaultResultsLimit
-    property bool searchPaths: Config.searchPaths
-    property bool showBadges: Config.showBadges
-    property int ageFilterValue: Config.defaultAgeFilter.value
-    property string ageFilterUnit: Config.defaultAgeFilter.unit
-    property int repositoryDepth: Config.defaultRepositoryDepth
+    property string trigger: Constants.trigger
+    property int resultsLimit: Constants.defaultResultsLimit
+    property bool searchPaths: Constants.searchPaths
+    property bool showBadges: Constants.showBadges
+    property int ageFilterValue: Constants.defaultAgeFilter.value
+    property string ageFilterUnit: Constants.defaultAgeFilter.unit
+    property int repositoryDepth: Constants.defaultRepositoryDepth
     property var draft: ({
     })
     property int editIndex: -1
@@ -180,17 +180,17 @@ Item {
             return ;
 
         DataStorage.configure(pluginService);
-        folders = ConfigurationRules.folderEntries(DataStorage.load("folders", Config.folders));
+        folders = ConfigurationRules.folderEntries(DataStorage.load("folders", Constants.folders));
         providers = ConfigurationRules.providers(DataStorage.load("providers", ProvidersManager.defaultConfigurations()));
         defaultProvider = ConfigurationRules.defaultProvider(DataStorage.load("defaultProvider", ProvidersManager.defaultProviderId()), providers);
-        trigger = DataStorage.load("trigger", Config.trigger);
-        resultsLimit = ResultRules.limit(DataStorage.load("resultsLimit", Config.defaultResultsLimit));
-        searchPaths = DataStorage.load("searchPaths", Config.searchPaths) === true;
-        showBadges = DataStorage.load("showBadges", Config.showBadges) !== false;
-        const ageSetting = AgeFilterRules.normalize(DataStorage.load("ageFilter", Config.defaultAgeFilter));
+        trigger = DataStorage.load("trigger", Constants.trigger);
+        resultsLimit = ResultRules.limit(DataStorage.load("resultsLimit", Constants.defaultResultsLimit));
+        searchPaths = DataStorage.load("searchPaths", Constants.searchPaths) === true;
+        showBadges = DataStorage.load("showBadges", Constants.showBadges) !== false;
+        const ageSetting = AgeFilterRules.normalize(DataStorage.load("ageFilter", Constants.defaultAgeFilter));
         ageFilterValue = ageSetting.value;
         ageFilterUnit = ageSetting.unit;
-        repositoryDepth = ConfigurationRules.repositoryDepth(DataStorage.load("repositoryDepth", Config.defaultRepositoryDepth));
+        repositoryDepth = ConfigurationRules.repositoryDepth(DataStorage.load("repositoryDepth", Constants.defaultRepositoryDepth));
         refreshScanErrors();
     }
 
@@ -257,7 +257,7 @@ Item {
 
     // Create an IDE draft with provider-owned defaults.
     function beginAdd() {
-        if (providers.length >= Config.maxProviders)
+        if (providers.length >= Constants.maxProviders)
             return ;
 
         editIndex = -1;
@@ -456,7 +456,7 @@ Item {
 
     // Save a launcher prefix after the field loses focus.
     function setTrigger(value, pluginOwners, builtInOwners) {
-        triggerError = TriggerRules.error(value, Config.pluginId, pluginOwners, builtInOwners);
+        triggerError = TriggerRules.error(value, Constants.pluginId, pluginOwners, builtInOwners);
         if (triggerError || !saveValue("trigger", value))
             return false;
 
@@ -557,7 +557,7 @@ Item {
     Timer {
         id: validationTimer
 
-        interval: Config.providerValidationDebounceMilliseconds
+        interval: Constants.providerValidationDebounceMilliseconds
         repeat: false
         onTriggered: root.validateDraft()
     }

@@ -1,6 +1,6 @@
 // DateRefresher.test.qml - Check that a refresh reads real modification times and reports the paths that do not exist.
 // Rules: Runs in the offscreen shell; a refresh must read real modification times, merge every batch, and report absent or unreadable paths as missing.
-import "../../../../../src/Plugin/JS/Helpers/Config.js" as Config
+import "../../../../../src/Plugin/JS/Helpers/Constants.js" as Constants
 import "../../../../../src/Plugin/QML/BackgroundWorkers" as Workers
 import QtQuick
 import Quickshell
@@ -34,9 +34,9 @@ QtObject {
     function checkBatchesMerge(next) {
         const existing = fixture.fixtureRoot + "/example.js";
         const paths = [existing];
-        for (let index = 0; index < Config.statBatchSize; index++) paths.push(fixture.fixtureRoot + "/absent-batch-" + index + ".js")
+        for (let index = 0; index < Constants.statBatchSize; index++) paths.push(fixture.fixtureRoot + "/absent-batch-" + index + ".js")
         refresher.refresh(paths, function(modifiedByPath, missing) {
-            if (!fixture.expect(modifiedByPath[existing] > 0 && missing.length === Config.statBatchSize, "batches were not merged: " + Object.keys(modifiedByPath).length + " answers and " + missing.length + " missing paths"))
+            if (!fixture.expect(modifiedByPath[existing] > 0 && missing.length === Constants.statBatchSize, "batches were not merged: " + Object.keys(modifiedByPath).length + " answers and " + missing.length + " missing paths"))
                 return ;
 
             next();

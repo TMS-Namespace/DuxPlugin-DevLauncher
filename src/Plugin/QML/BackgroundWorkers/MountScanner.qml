@@ -1,5 +1,5 @@
 // MountScanner.qml - Read the current process mount table before classifying scanned paths.
-import "../../JS/Helpers/Config.js" as Config
+import "../../JS/Helpers/Constants.js" as Constants
 import "../../JS/Helpers/PathRules.js" as PathRules
 import QtQml
 import QtQuick
@@ -41,7 +41,7 @@ QtObject {
     // Stops a mount-table read that never answers, so the scan continues with ordinary local path checks.
 
     watchdog: Timer {
-        interval: Config.mountScanMilliseconds
+        interval: Constants.mountScanMilliseconds
         repeat: false
         onTriggered: root.finish([])
     }

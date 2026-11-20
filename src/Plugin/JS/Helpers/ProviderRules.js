@@ -5,7 +5,7 @@
 .import "ArgumentRules.js" as ArgumentRules
 .import "../Contracts/InstallationType.js" as InstallationType
 .import "ProviderIdentity.js" as ProviderIdentity
-.import "Config.js" as Config
+.import "Constants.js" as Constants
 // Rules: Pure declaration checks: throws PluginError for unknown fields, bad settings or missing overrides; no QML types or logging.
 var PropertyNames = Object.freeze([
     "providerType",
@@ -76,8 +76,8 @@ function assertDeclaration(declared, api, descriptor) {
         );
     if (
         typeof declared.name !== "string" ||
-        declared.name.length < Config.minIdeAliasLength ||
-        declared.name.length > Config.maxIdeAliasLength ||
+        declared.name.length < Constants.minIdeAliasLength ||
+        declared.name.length > Constants.maxIdeAliasLength ||
         !/^[A-Za-z][A-Za-z0-9 _-]*$/.test(declared.name)
     )
         throw new PluginError.PluginError(

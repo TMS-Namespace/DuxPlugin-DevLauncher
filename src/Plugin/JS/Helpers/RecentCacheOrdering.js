@@ -1,6 +1,6 @@
 // RecentCacheOrdering.js - Order cache entries for searching, bound the cache, and list the paths that need a fresh stat read.
 .pragma library
-.import "Config.js" as Config
+.import "Constants.js" as Constants
 .import "PathRules.js" as PathRules
 // Rules: Pure ordering and bounding: changes only the cache object it is given; no I/O, QML types or logging.
 
@@ -30,7 +30,7 @@ function stalePaths(cache, now) {
     return Object.keys(cache).filter(function (path) {
         return (
             PathRules.resourceType(path) !== "remote" &&
-            (cache[path].statAt === 0 || now - cache[path].statAt >= Config.redateMilliseconds)
+            (cache[path].statAt === 0 || now - cache[path].statAt >= Constants.redateMilliseconds)
         );
     });
 }

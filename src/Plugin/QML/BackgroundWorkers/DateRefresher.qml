@@ -1,6 +1,6 @@
 // DateRefresher.qml - Read the modification times of many paths in batches, one stat process at a time, and report once.
 // Only explicit absence errors remove paths; unreadable paths and failed commands keep their cached entries.
-import "../../JS/Helpers/Config.js" as Config
+import "../../JS/Helpers/Constants.js" as Constants
 import "../../JS/Helpers/StatBatchRules.js" as StatBatchRules
 import QtQml
 import QtQuick
@@ -27,7 +27,7 @@ QtObject {
         if (running)
             return false;
 
-        pendingBatches = StatBatchRules.batches(paths.slice(), Config.statBatchSize);
+        pendingBatches = StatBatchRules.batches(paths.slice(), Constants.statBatchSize);
         missingPaths = [];
         modifiedByPath = ({
         });
@@ -111,7 +111,7 @@ QtObject {
             property var owner: null
 
             // Diagnostics must stay in English so missing paths can be recognised.
-            environment: Config.commandEnvironment
+            environment: Constants.commandEnvironment
             onExited: function(exitCode) {
                 exitStatus = exitCode;
                 exited = true;
@@ -139,7 +139,7 @@ QtObject {
     }
 
     watchdog: Timer {
-        interval: Config.statBatchWatchdogMilliseconds
+        interval: Constants.statBatchWatchdogMilliseconds
         repeat: false
         onTriggered: {
             if (!root.running)

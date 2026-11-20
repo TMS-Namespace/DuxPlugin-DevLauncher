@@ -85,7 +85,7 @@ Then scan for plugins and enable `Dev Launcher` in Dux Shell.
 
 Pull requests are welcome. Please follow the [Code Requirements](docs/code_requirements.md).
 
-The plugin has `isDevMode` in `src/Plugin/JS/Helpers/Config.js`. When it is `true`, logging for debugging is enabled.
+The plugin has `isDevMode` in `src/Plugin/JS/Helpers/Constants.js`. When it is `true`, logging for debugging is enabled.
 
 ## Disclaimers
 

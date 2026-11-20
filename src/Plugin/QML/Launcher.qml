@@ -2,8 +2,8 @@
 // Rules: Searches read only the ordered cache, and a launch is recorded only after its launch call returns without an error. The root is a QtObject; its details window is created on first use.
 import "../JS/Helpers/ActionRules.js" as ActionRules
 import "../JS/Helpers/AgeFilterRules.js" as AgeFilterRules
-import "../JS/Helpers/Config.js" as Config
 import "../JS/Helpers/ConfigurationRules.js" as ConfigurationRules
+import "../JS/Helpers/Constants.js" as Constants
 import "../JS/Helpers/LauncherRules.js" as Rules
 import "../JS/Helpers/PathRules.js" as PathRules
 import "../JS/Helpers/ResultRules.js" as ResultRules
@@ -18,8 +18,8 @@ QtObject {
 
     property var pluginService: null
     // The plugin id that Dux uses to route launcher refresh requests back to this launcher.
-    property string pluginId: Config.pluginId
-    property string trigger: Config.trigger
+    property string pluginId: Constants.pluginId
+    property string trigger: Constants.trigger
     // The time of the last refresh request, so the request is not repeated within the refresh interval.
     property double lastRequest: 0
     // Dux also calls getItems for redraws. An unchanged query must only read the cache.
@@ -48,10 +48,10 @@ QtObject {
             settingsSnapshot = {
             "providers": DataStorage.load("providers", ProvidersManager.defaultConfigurations()),
             "defaultProvider": DataStorage.load("defaultProvider", ProvidersManager.defaultProviderId()),
-            "resultsLimit": DataStorage.load("resultsLimit", Config.defaultResultsLimit),
-            "searchPaths": DataStorage.load("searchPaths", Config.searchPaths),
-            "showBadges": DataStorage.load("showBadges", Config.showBadges),
-            "ageFilter": DataStorage.load("ageFilter", Config.defaultAgeFilter)
+            "resultsLimit": DataStorage.load("resultsLimit", Constants.defaultResultsLimit),
+            "searchPaths": DataStorage.load("searchPaths", Constants.searchPaths),
+            "showBadges": DataStorage.load("showBadges", Constants.showBadges),
+            "ageFilter": DataStorage.load("ageFilter", Constants.defaultAgeFilter)
         };
 
         return settingsSnapshot;
@@ -76,7 +76,7 @@ QtObject {
         lastQuery = query;
         const now = Date.now();
         const scannedAt = ScanState.scannedAt;
-        if (searchStarts && now - scannedAt > Config.refreshMilliseconds && now - lastRequest > Config.refreshMilliseconds) {
+        if (searchStarts && now - scannedAt > Constants.refreshMilliseconds && now - lastRequest > Constants.refreshMilliseconds) {
             lastRequest = now;
             ScanState.requestRefresh(lastRequest);
         }
@@ -203,7 +203,7 @@ QtObject {
     onPluginServiceChanged: {
         DataStorage.configure(pluginService);
         if (pluginService)
-            trigger = DataStorage.load("trigger", Config.trigger);
+            trigger = DataStorage.load("trigger", Constants.trigger);
 
     }
 
@@ -217,7 +217,7 @@ QtObject {
         // Reloads the trigger when this plugin's saved data changes, and ignores other plugins.
         function onPluginDataChanged(changedPluginId) {
             if (changedPluginId === root.pluginId) {
-                root.trigger = DataStorage.load("trigger", Config.trigger);
+                root.trigger = DataStorage.load("trigger", Constants.trigger);
                 root.settingsSnapshot = null;
             }
         }
@@ -228,7 +228,7 @@ QtObject {
 
     settingsWatcher: Connections {
         function onSettingsChanged() {
-            root.trigger = DataStorage.load("trigger", Config.trigger);
+            root.trigger = DataStorage.load("trigger", Constants.trigger);
             root.settingsSnapshot = null;
             root.lastQuery = null;
             root.requestLauncherUpdate();

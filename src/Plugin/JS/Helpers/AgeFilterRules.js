@@ -1,7 +1,7 @@
 // AgeFilterRules.js - Calculate one effective item age for ranking, filtering, and labels.
 .pragma library
 .import "../Contracts/AgeUnit.js" as AgeUnit
-.import "Config.js" as Config
+.import "Constants.js" as Constants
 var MILLISECONDS_PER_MINUTE = 60000;
 var MINUTES_PER_HOUR = 60;
 var HOURS_PER_DAY = 24;
@@ -20,10 +20,10 @@ function normalize(value) {
             : NaN;
     return {
         value:
-            Number.isInteger(amount) && amount >= Config.minAgeFilterValue && amount <= Config.maxAgeFilterValue
+            Number.isInteger(amount) && amount >= Constants.minAgeFilterValue && amount <= Constants.maxAgeFilterValue
                 ? amount
-                : Config.defaultAgeFilter.value,
-        unit: AgeUnit.isValid(candidate.unit) ? candidate.unit : Config.defaultAgeFilter.unit
+                : Constants.defaultAgeFilter.value,
+        unit: AgeUnit.isValid(candidate.unit) ? candidate.unit : Constants.defaultAgeFilter.unit
     };
 }
 

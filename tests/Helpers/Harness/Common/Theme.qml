@@ -5,6 +5,8 @@ import QtQuick
 
 QtObject {
     property real iconSizeLarge: 32
+    // The dialog width limit of the installed Theme (560).
+    property real dialogMaxWidth: 560
     property color surfaceText: "white"
     property color surfaceVariantText: "gray"
     property color surfaceContainerHigh: "#303030"

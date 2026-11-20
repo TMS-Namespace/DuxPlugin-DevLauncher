@@ -1,7 +1,13 @@
 // BadgeAppearanceRules.js - Choose contrasting rounded badge surfaces from SVG icon colors.
 .pragma library
-.import "Config.js" as Config
+.import "Constants.js" as Constants
 // Rules: Pure SVG string building: no QML types, no logging, no I/O.
+
+// Design note for the badge colours below (#111820 and #ffffff). They are hard-coded on purpose, and Theme colours
+// are not used. A badge must stand out from the file or folder icon it is drawn over, and theme colours could match
+// that icon. Each badge is therefore drawn in two variants ahead of time, one for a light base and one for a dark base,
+// and both are cached. At display time the variant is chosen from the brightness of the base icon, so no colour is
+// computed per result, which keeps drawing fast.
 
 // Estimate the base icon's brightness from its first explicit hexadecimal fill.
 function lightBase(svgText) {
@@ -28,6 +34,7 @@ function lightBase(svgText) {
 
 // Draw a contrasting rounded square at a requested badge position.
 function surfaceAt(svgText, x, y, size) {
+    // Hard-coded colour pair: see the design note above lightBase.
     const fill = lightBase(svgText) ? "#111820" : "#ffffff";
     return (
         '<rect x="' +
@@ -41,7 +48,7 @@ function surfaceAt(svgText, x, y, size) {
         '" rx="6" fill="' +
         fill +
         '" fill-opacity="' +
-        Config.sourceBadgeOpacity +
+        Constants.sourceBadgeOpacity +
         '"/>'
     );
 }
@@ -53,6 +60,7 @@ function surface(svgText, top) {
 
 // Keep the Git marker inside the same square treatment as IDE badges.
 function gitMarker(svgText) {
+    // Hard-coded colour pair: see the design note above lightBase.
     const color = lightBase(svgText) ? "#ffffff" : "#111820";
     return (
         surface(svgText, false) +
@@ -91,6 +99,7 @@ function gitMarkerAt(svgText, x, y, size) {
 
 // Draw the remote marker, a small globe, on the same surface treatment as the Git marker.
 function remoteMarker(svgText) {
+    // Hard-coded colour pair: see the design note above lightBase.
     const color = lightBase(svgText) ? "#ffffff" : "#111820";
     return (
         surface(svgText, false) +

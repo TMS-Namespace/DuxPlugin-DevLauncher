@@ -42,8 +42,10 @@ DFloatingWindow {
             shown = false;
 
     }
-    implicitWidth: 640
-    implicitHeight: 360
+    // The window fits its content: the width is the shared dialog width, and the height is the dialog's own content height,
+    // so long details grow the window and short ones leave no empty space.
+    implicitWidth: Theme.dialogMaxWidth
+    implicitHeight: detailsDialog.implicitHeight
 
     DDialog {
         id: detailsDialog

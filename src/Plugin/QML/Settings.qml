@@ -1,6 +1,6 @@
 // Settings.qml - Compose grouped launcher, repository, and IDE settings.
 // Rules: Setting changes go to the settings controller, and the page only composes sections, file pickers, and its saved group layout through DataStorage.
-import "../JS/Helpers/Config.js" as Config
+import "../JS/Helpers/Constants.js" as Constants
 import "./Helpers"
 import "./Services"
 import "./Views"
@@ -80,7 +80,7 @@ PluginSettings {
         };
         const launchers = HostServices.PluginService.getLauncherPlugins();
         for (const pluginId of Object.keys(launchers)) {
-            if (pluginId === Config.pluginId)
+            if (pluginId === Constants.pluginId)
                 continue;
 
             const trigger = HostServices.PluginService.getPluginTrigger(pluginId);
@@ -99,7 +99,7 @@ PluginSettings {
         return settingsController.saveValue(key, value);
     }
 
-    pluginId: Config.pluginId
+    pluginId: Constants.pluginId
     // Load the saved open groups through the storage object once the host service is attached to the page.
     Component.onCompleted: {
         DataStorage.configure(root.pluginService);
@@ -175,7 +175,7 @@ PluginSettings {
 
                         text: "Maximum results shown"
                         description: "Search checks every discovered item before limiting the displayed results."
-                        options: Config.resultLimitOptions.map(function(count) {
+                        options: Constants.resultLimitOptions.map(function(count) {
                             return count.toString();
                         })
                         optionValues: options
@@ -349,8 +349,8 @@ PluginSettings {
                         id: repositoryDepthControl
 
                         width: parent.width
-                        minimum: Config.minRepositoryDepth
-                        maximum: Config.maxRepositoryDepth
+                        minimum: Constants.minRepositoryDepth
+                        maximum: Constants.maxRepositoryDepth
                         value: settingsController.repositoryDepth
                         wheelEnabled: false
                         onSliderValueChanged: function(value) {

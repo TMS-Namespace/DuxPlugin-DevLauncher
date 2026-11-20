@@ -55,7 +55,8 @@ QtObject {
             return false;
 
         const saved = fixture.expect(fixture.settings.damagedSettingsBackup.resultsLimit[0] === 999, "invalid numeric setting was not backed up");
-        Services.ErrorHandler.lastNotificationAt = 0;
+        Services.ErrorHandler.lastNotificationTimes = ({
+        });
         return saved;
     }
 

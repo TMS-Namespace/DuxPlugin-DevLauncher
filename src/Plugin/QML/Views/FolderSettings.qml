@@ -1,5 +1,5 @@
 // FolderSettings.qml - Show scan folders with browse and remove actions.
-import "../../JS/Helpers/Config.js" as Config
+import "../../JS/Helpers/Constants.js" as Constants
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
@@ -115,7 +115,7 @@ Column {
         variant: "tonal"
         shape: "round"
         anchors.horizontalCenter: parent.horizontalCenter
-        enabled: root.controller.folders.length < Config.maxScanFolders
+        enabled: root.controller.folders.length < Constants.maxScanFolders
         onClicked: root.browseRequested()
     }
 

@@ -1,7 +1,7 @@
 // ProviderEditor.qml - Edit one IDE with separate fields and argument rows.
 // Rules: Every edit goes to the controller as a draft; this view shows the controller's values and holds no validity logic.
 import "../../JS/Contracts/InstallationType.js" as InstallationType
-import "../../JS/Helpers/Config.js" as Config
+import "../../JS/Helpers/Constants.js" as Constants
 import "../Services"
 import QtQuick
 import QtQuick.Layouts
@@ -175,7 +175,7 @@ Column {
                 return installation.type;
             })
             currentValue: root.controller.draft.installationType || ProvidersManager.defaultsFor(root.controller.draft.type).installationType || InstallationType.Native
-            dropdownWidth: Math.round(root.width * Config.settingsControlWidthFraction)
+            dropdownWidth: Math.round(root.width * Constants.settingsControlWidthFraction)
             onValueChanged: function(value) {
                 root.controller.commitField("installationType", value);
             }

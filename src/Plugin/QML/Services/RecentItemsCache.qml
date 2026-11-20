@@ -1,6 +1,6 @@
 // RecentItemsCache.qml - The cache of recent items, shared by the scan and the launcher: one entry per path, kept ordered for searching.
 // Rules: Only the scan and a recorded launch change the entries, and a search reads the ordered list without sorting it.
-import "../../JS/Helpers/Config.js" as Config
+import "../../JS/Helpers/Constants.js" as Constants
 import "../../JS/Helpers/LauncherRules.js" as LauncherRules
 import "../../JS/Helpers/PathRules.js" as PathRules
 import "../../JS/Helpers/RecentCacheOrdering.js" as RecentCacheOrdering
@@ -60,7 +60,7 @@ QtObject {
 
     // The number of entries the cache may keep: a multiple of the results the user chose, read at each commit.
     function bound() {
-        return ResultRules.limit(DataStorage.load("resultsLimit", Config.defaultResultsLimit)) * Config.cachedResultsMultiplier;
+        return ResultRules.limit(DataStorage.load("resultsLimit", Constants.defaultResultsLimit)) * Constants.cachedResultsMultiplier;
     }
 
     // Make the entries show the saved launch activity, order them once, drop those beyond the bound, and tell the launcher that the list changed.
@@ -73,7 +73,7 @@ QtObject {
 
     // Record one launch: update the saved counts first, save them, then let the entry take them and move to its new place.
     function recordLaunch(path, ideId, now) {
-        usage = LauncherRules.recordLaunch(usage, path, ideId, now, Config.maxUsageEntries);
+        usage = LauncherRules.recordLaunch(usage, path, ideId, now, Constants.maxUsageEntries);
         RecentCacheUsage.recordLaunch(entries, path, usage, now);
         if (DataStorage.save("usage", usage) !== true)
             ErrorHandler.report("launch", "Could not save launch history.");

@@ -1,6 +1,6 @@
 // FolderScanningHelper.js - Build the find command that lists Git repositories below one folder, and read its output back.
 .pragma library
-.import "../../../Plugin/JS/Helpers/Config.js" as Config
+.import "../../../Plugin/JS/Helpers/Constants.js" as Constants
 .import "../../../Plugin/JS/Helpers/ConfigurationRules.js" as ConfigurationRules
 .import "../../../Plugin/JS/Helpers/PathRules.js" as PathRules
 // Only the local Git folder source uses this module; it keeps no state and never runs anything itself.
@@ -14,7 +14,7 @@ var EXCLUDED_DIRECTORIES = Object.freeze(["node_modules", ".venv", "venv", "dist
 function findCommand(folder, depth) {
     const command = [
         "timeout",
-        Config.repositoryScanTimeout,
+        Constants.repositoryScanTimeout,
         "find",
         folder,
         "-maxdepth",
